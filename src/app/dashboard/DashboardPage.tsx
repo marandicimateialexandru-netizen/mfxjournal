@@ -282,13 +282,23 @@ export default function DashboardPage() {
           <CardContent className="h-52">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={dailyPnl}>
+                <defs>
+                  <linearGradient id="dailyGain" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#34d399" />
+                    <stop offset="100%" stopColor="#059669" />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                 <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" />
                 <YAxis tick={{ fontSize: 11 }} stroke="var(--color-text-muted)" />
                 <Tooltip {...chartTooltipProps} cursor={false} />
-                <Bar dataKey="r">
+                <Bar dataKey="r" radius={[4, 4, 0, 0]}>
                   {dailyPnl.map((d, i) => (
-                    <Cell key={i} fill={d.r >= 0 ? "var(--color-success)" : "var(--color-danger)"} />
+                    <Cell
+                      key={i}
+                      fill={d.r >= 0 ? "url(#dailyGain)" : "var(--color-danger)"}
+                      style={{ color: d.r >= 0 ? "#34d399" : "var(--color-danger)" }}
+                    />
                   ))}
                 </Bar>
               </BarChart>
@@ -319,7 +329,11 @@ export default function DashboardPage() {
                 <Tooltip {...chartTooltipProps} cursor={false} />
                 <Bar dataKey="r" radius={[4, 4, 0, 0]}>
                   {monthlyPerformance.map((d, i) => (
-                    <Cell key={i} fill={d.r >= 0 ? "url(#monthlyGain)" : "url(#monthlyLoss)"} />
+                    <Cell
+                      key={i}
+                      fill={d.r >= 0 ? "url(#monthlyGain)" : "url(#monthlyLoss)"}
+                      style={{ color: d.r >= 0 ? "#6ee7b7" : "#fca5a5" }}
+                    />
                   ))}
                 </Bar>
               </BarChart>
@@ -386,7 +400,11 @@ export default function DashboardPage() {
                           <Tooltip {...chartTooltipProps} cursor={false} />
                           <Bar dataKey="resultR">
                             {points.map((p, i) => (
-                              <Cell key={i} fill={p.resultR >= 0 ? "var(--color-success)" : "var(--color-danger)"} />
+                              <Cell
+                                key={i}
+                                fill={p.resultR >= 0 ? "var(--color-success)" : "var(--color-danger)"}
+                                style={{ color: p.resultR >= 0 ? "#6ee7b7" : "#fca5a5" }}
+                              />
                             ))}
                           </Bar>
                         </BarChart>
@@ -400,7 +418,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <TradeCalendar trades={filteredTradesForSearch} />
+      <TradeCalendar trades={filteredTradesForSearch} variables={variables} />
     </div>
   );
 }

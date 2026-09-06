@@ -16,6 +16,7 @@
     "fs:allow-write-file",
     "fs:allow-mkdir",
     "fs:allow-exists",
+    "fs:allow-copy-file",
     "fs:scope-appdata-recursive",
     "dialog:default"
   ]

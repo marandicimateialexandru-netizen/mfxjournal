@@ -18,7 +18,7 @@ export const THEME_PRESETS: ThemePreset[] = [
       surfaceForeground: "#e4e4e7",
       text: "#e4e4e7",
       textMuted: "#8b8b98",
-      success: "#22c55e",
+      success: "#34d399",
       danger: "#ef4444",
       warning: "#f5a524",
       border: "#26262f",

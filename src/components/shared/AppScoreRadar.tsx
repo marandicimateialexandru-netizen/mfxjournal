@@ -1,23 +1,39 @@
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } from "recharts";
+import { useId } from "react";
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, Tooltip } from "recharts";
 import type { AppScoreBreakdown } from "@/features/stats/appScore";
+import { tooltipContentStyle, tooltipLabelStyle } from "@/lib/chartTheme";
 
 export function AppScoreRadar({ breakdown }: { breakdown: AppScoreBreakdown }) {
+  const gradientId = useId();
   const data = breakdown.subScores.map((s) => ({ label: s.label, value: Math.round(s.value) }));
   const score = Math.round(breakdown.score);
 
   return (
-    <div className="space-y-4">
+    <div className="animate-radar-pop space-y-4">
       <div className="h-56">
         <ResponsiveContainer width="100%" height="100%">
-          <RadarChart data={data} outerRadius="75%">
+          <RadarChart data={data} outerRadius="72%">
+            <defs>
+              <radialGradient id={gradientId}>
+                <stop offset="0%" stopColor="#34d399" stopOpacity={0.55} />
+                <stop offset="100%" stopColor="#059669" stopOpacity={0.15} />
+              </radialGradient>
+            </defs>
             <PolarGrid stroke="var(--color-border)" />
-            <PolarAngleAxis dataKey="label" tick={{ fontSize: 10, fill: "var(--color-text-muted)" }} />
+            <PolarAngleAxis dataKey="label" tick={{ fontSize: 12, fontWeight: 600, fill: "var(--color-text)" }} />
+            <Tooltip
+              contentStyle={tooltipContentStyle}
+              labelStyle={tooltipLabelStyle}
+              itemStyle={{ color: "var(--color-text)", fontWeight: 600 }}
+              cursor={false}
+            />
             <Radar
               dataKey="value"
-              stroke="var(--color-primary)"
-              fill="var(--color-primary)"
-              fillOpacity={0.35}
-              strokeWidth={2}
+              stroke="#10b981"
+              fill={`url(#${gradientId})`}
+              strokeWidth={2.5}
+              dot={{ r: 3.5, fill: "#10b981", stroke: "var(--color-surface)", strokeWidth: 1.5 }}
+              activeDot={{ r: 6, fill: "#34d399", stroke: "var(--color-surface)", strokeWidth: 2 }}
             />
           </RadarChart>
         </ResponsiveContainer>
@@ -25,7 +41,7 @@ export function AppScoreRadar({ breakdown }: { breakdown: AppScoreBreakdown }) {
 
       <div className="space-y-1.5">
         <div className="flex items-baseline justify-between">
-          <span className="text-xs text-[var(--color-text-muted)]">App Score</span>
+          <span className="text-sm font-medium text-[var(--color-text-muted)]">App Score</span>
           <span className="text-2xl font-extrabold tabular-nums text-gradient-profit">{score}</span>
         </div>
         <div className="relative h-2.5 w-full rounded-full" style={{ background: SCORE_GRADIENT }}>
@@ -45,11 +61,11 @@ export function AppScoreRadar({ breakdown }: { breakdown: AppScoreBreakdown }) {
 }
 
 const SCORE_GRADIENT =
-  "linear-gradient(90deg, #ef4444, #f59e0b, #eab308, #84cc16, #22c55e)";
+  "linear-gradient(90deg, #ef4444, #f59e0b, #eab308, #84cc16, #34d399)";
 
 function scoreColor(score: number): string {
   if (score < 35) return "#ef4444";
   if (score < 55) return "#f59e0b";
   if (score < 75) return "#eab308";
-  return "#22c55e";
+  return "#34d399";
 }

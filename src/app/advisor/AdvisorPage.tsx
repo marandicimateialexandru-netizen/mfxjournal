@@ -200,7 +200,11 @@ export default function AdvisorPage() {
                 <Tooltip {...chartTooltipProps} cursor={false} />
                 <Bar dataKey="count">
                   {rMultipleHistogram.map((b, i) => (
-                    <Cell key={i} fill={b.binStart >= 0 ? "var(--color-success)" : "var(--color-danger)"} />
+                    <Cell
+                      key={i}
+                      fill={b.binStart >= 0 ? "var(--color-success)" : "var(--color-danger)"}
+                      style={{ color: b.binStart >= 0 ? "#6ee7b7" : "#fca5a5" }}
+                    />
                   ))}
                 </Bar>
               </BarChart>
@@ -285,7 +289,11 @@ export default function AdvisorPage() {
               <Tooltip {...chartTooltipProps} cursor={false} />
               <Bar dataKey="avgR">
                 {edgeMap.map((b, i) => (
-                  <Cell key={i} fill={b.avgR >= 0 ? "var(--color-success)" : "var(--color-danger)"} />
+                  <Cell
+                    key={i}
+                    fill={b.avgR >= 0 ? "var(--color-success)" : "var(--color-danger)"}
+                    style={{ color: b.avgR >= 0 ? "#6ee7b7" : "#fca5a5" }}
+                  />
                 ))}
               </Bar>
             </BarChart>

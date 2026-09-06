@@ -16,18 +16,45 @@ import { ChevronLeft, ChevronRight, ChevronUp, CalendarDays, Calendar, MousePoin
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { IconBadge } from "@/components/shared/IconBadge";
+import { TradeDetailModal } from "@/features/trades/TradeDetailModal";
 import { cn } from "@/lib/utils";
 import type { Trade } from "@/db/types";
+import type { VariableWithValues } from "@/db/queries/variables";
 
 interface Selection {
   label: string;
   trades: Trade[];
 }
 
-export function TradeCalendar({ trades, onSelectDay }: { trades: Trade[]; onSelectDay?: (day: Date, trades: Trade[]) => void }) {
+type CellTone = "positive" | "negative" | "warning" | "none";
+
+const TONE_VAR: Record<Exclude<CellTone, "none">, string> = {
+  positive: "--color-success",
+  negative: "--color-danger",
+  warning: "--color-warning",
+};
+
+/** A solid, richly-saturated fill derived from the theme token (not a translucent overlay),
+ *  so it stays correct if the user picks a custom theme. */
+function toneBackground(tone: CellTone, pct: number): string | undefined {
+  if (tone === "none") return undefined;
+  return `color-mix(in srgb, var(${TONE_VAR[tone]}) ${pct}%, var(--color-background))`;
+}
+
+export function TradeCalendar({
+  trades,
+  variables = [],
+  onSelectDay,
+}: {
+  trades: Trade[];
+  variables?: VariableWithValues[];
+  onSelectDay?: (day: Date, trades: Trade[]) => void;
+}) {
   const [cursor, setCursor] = useState(new Date());
   const [collapsed, setCollapsed] = useState(false);
   const [selection, setSelection] = useState<Selection | null>(null);
+  const [activeTrade, setActiveTrade] = useState<Trade | null>(null);
 
   const days = useMemo(() => {
     const start = startOfWeek(startOfMonth(cursor), { weekStartsOn: 1 });
@@ -75,7 +102,7 @@ export function TradeCalendar({ trades, onSelectDay }: { trades: Trade[]; onSele
   return (
     <Card>
       <div className="flex items-center gap-3 border-b border-[var(--color-border)] p-4">
-        <CalendarDays className="h-4 w-4 text-[var(--color-primary)]" />
+        <IconBadge icon={CalendarDays} tone="violet" size={30} />
         <h3 className="text-base font-bold text-[var(--color-text)]">Trade Calendar</h3>
         <div className="h-px flex-1 bg-[var(--color-border)]" />
         <button
@@ -90,18 +117,20 @@ export function TradeCalendar({ trades, onSelectDay }: { trades: Trade[]; onSele
         <CardContent className="p-4">
           <div className="mb-4 flex flex-wrap items-center gap-3">
             <span className="text-lg font-bold text-[var(--color-text)]">{format(cursor, "MMMM yyyy")}</span>
-            <Calendar className="h-4 w-4 text-[var(--color-text-muted)]" />
-            <span className="text-sm text-[var(--color-text-muted)]">{monthTrades.length} trades</span>
+            <span className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)]">
+              <Calendar className="h-3.5 w-3.5" />
+              {monthTrades.length} trades
+            </span>
             {monthTrades.length > 0 && (
               <Badge variant={monthTotalR >= 0 ? "win" : "loss"} className="font-bold">
                 {monthTotalR >= 0 ? "+" : ""}
                 {monthTotalR.toFixed(2)}R
               </Badge>
             )}
-            <div className="ml-auto flex items-center gap-3">
+            <div className="ml-auto flex items-center gap-2">
               <button
                 onClick={() => setCursor(new Date())}
-                className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+                className="rounded-md border border-[var(--color-border)] px-2.5 py-1 text-xs font-medium text-[var(--color-text-muted)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-text)]"
               >
                 Today
               </button>
@@ -116,9 +145,9 @@ export function TradeCalendar({ trades, onSelectDay }: { trades: Trade[]; onSele
 
           <div className="flex flex-col gap-6 lg:flex-row">
             <div className="flex-1">
-              <div className="grid grid-cols-6 gap-2 text-center text-xs font-medium text-[var(--color-text-muted)]">
+              <div className="grid grid-cols-6 gap-3 text-center text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
                 {["Mon", "Tue", "Wed", "Thu", "Fri", "Week"].map((d) => (
-                  <div key={d} className="pb-1">
+                  <div key={d} className="pb-2">
                     {d}
                   </div>
                 ))}
@@ -147,30 +176,38 @@ export function TradeCalendar({ trades, onSelectDay }: { trades: Trade[]; onSele
                             key={key}
                             disabled={!hasTrades}
                             onClick={() => selectDay(day, dayTrades)}
+                            style={{ background: toneBackground(tone, 16) }}
                             className={cn(
-                              "flex min-h-[92px] flex-col items-start justify-start rounded-lg p-2 text-left transition-colors",
+                              "flex min-h-[128px] flex-col items-start justify-between gap-1 rounded-xl border p-3 text-left transition-all duration-150",
                               !inMonth && "opacity-25",
-                              isToday && "ring-2 ring-[var(--color-primary)]",
-                              tone === "none" && "bg-white/[0.02]",
-                              tone === "positive" && "bg-[#10b981]/25 hover:bg-[#10b981]/35",
-                              tone === "negative" && "bg-[#ef4444]/25 hover:bg-[#ef4444]/35",
-                              tone === "warning" && "bg-[var(--color-warning)]/25 hover:bg-[var(--color-warning)]/35",
+                              isToday && "ring-2 ring-[var(--color-primary)] ring-offset-1 ring-offset-[var(--color-surface)]",
+                              tone === "none" && "border-white/[0.04] bg-white/[0.015]",
+                              tone !== "none" && "border-transparent shadow-sm hover:-translate-y-0.5",
+                              tone === "positive" &&
+                                "hover:shadow-[0_2px_8px_rgba(0,0,0,0.15),0_0_0_1.5px_color-mix(in_srgb,#34d399_60%,transparent)]",
+                              tone === "negative" &&
+                                "hover:shadow-[0_2px_8px_rgba(0,0,0,0.15),0_0_0_1.5px_color-mix(in_srgb,var(--color-danger)_60%,transparent)]",
+                              tone === "warning" &&
+                                "hover:shadow-[0_2px_8px_rgba(0,0,0,0.15),0_0_0_1.5px_color-mix(in_srgb,var(--color-warning)_60%,transparent)]",
                             )}
                           >
                             <span
                               className={cn(
-                                "text-xs",
+                                "text-sm font-medium",
                                 hasTrades ? "text-[var(--color-text)]" : "text-[var(--color-text-muted)]",
                               )}
                             >
                               {format(day, "d")}
                             </span>
                             {hasTrades && (
-                              <div className="mt-auto w-full">
+                              <div
+                                style={{ background: toneBackground(tone, 42) }}
+                                className="flex w-full flex-col items-center justify-center gap-0.5 rounded-lg py-1.5 text-center"
+                              >
                                 <div
                                   className={cn(
-                                    "text-base font-extrabold tabular-nums",
-                                    tone === "positive" && "text-[#6ee7b7]",
+                                    "text-lg font-extrabold tabular-nums",
+                                    tone === "positive" && "text-[#34d399]",
                                     tone === "negative" && "text-[#fca5a5]",
                                     tone === "warning" && "text-[var(--color-warning)]",
                                   )}
@@ -178,7 +215,7 @@ export function TradeCalendar({ trades, onSelectDay }: { trades: Trade[]; onSele
                                   {totalR > 0 ? "+" : ""}
                                   {totalR.toFixed(2)}R
                                 </div>
-                                <div className="text-[10px] text-[var(--color-text-muted)]">
+                                <div className="text-xs text-[var(--color-text-muted)]">
                                   {dayTrades.length} trade{dayTrades.length === 1 ? "" : "s"}
                                 </div>
                               </div>
@@ -187,35 +224,54 @@ export function TradeCalendar({ trades, onSelectDay }: { trades: Trade[]; onSele
                         );
                       })}
 
-                      <button
-                        onClick={() => selectWeek(weekNum, weekTrades)}
-                        disabled={weekTrades.length === 0}
-                        className={cn(
-                          "flex min-h-[92px] flex-col items-center justify-center gap-0.5 rounded-lg p-2",
-                          weekTrades.length > 0 ? "bg-white/[0.04] hover:bg-white/[0.07]" : "bg-white/[0.015]",
-                        )}
-                      >
-                        <span className="text-[10px] text-[var(--color-text-muted)]">W{weekNum}</span>
-                        {weekTrades.length > 0 ? (
-                          <>
-                            <span
-                              className={cn(
-                                "text-base font-extrabold tabular-nums",
-                                weekTotalR >= 0 ? "text-[#6ee7b7]" : "text-[#fca5a5]",
-                              )}
-                            >
-                              {weekTotalR > 0 ? "+" : ""}
-                              {weekTotalR.toFixed(2)}R
+                      {(() => {
+                        const weekTone =
+                          weekTotalR > 0 ? "positive" : weekTotalR < 0 ? "negative" : weekTrades.length > 0 ? "warning" : "none";
+                        return (
+                          <button
+                            onClick={() => selectWeek(weekNum, weekTrades)}
+                            disabled={weekTrades.length === 0}
+                            style={{ background: toneBackground(weekTone, 16) }}
+                            className={cn(
+                              "flex min-h-[128px] flex-col items-center justify-between gap-1 rounded-xl border p-3 transition-all duration-150",
+                              weekTone === "none" && "border-white/[0.04] bg-white/[0.015]",
+                              weekTone !== "none" && "border-transparent shadow-sm hover:-translate-y-0.5",
+                              weekTone === "positive" &&
+                                "hover:shadow-[0_2px_8px_rgba(0,0,0,0.15),0_0_0_1.5px_color-mix(in_srgb,#34d399_60%,transparent)]",
+                              weekTone === "negative" &&
+                                "hover:shadow-[0_2px_8px_rgba(0,0,0,0.15),0_0_0_1.5px_color-mix(in_srgb,var(--color-danger)_60%,transparent)]",
+                              weekTone === "warning" &&
+                                "hover:shadow-[0_2px_8px_rgba(0,0,0,0.15),0_0_0_1.5px_color-mix(in_srgb,var(--color-warning)_60%,transparent)]",
+                            )}
+                          >
+                            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                              Week {weekNum}
                             </span>
-                            <span className="text-[10px] tabular-nums">
-                              <span className="text-[var(--color-success)]">{wins}W</span>{" "}
-                              <span className="text-[var(--color-danger)]">{losses}L</span>
-                            </span>
-                          </>
-                        ) : (
-                          <span className="text-sm text-[var(--color-text-muted)]">—</span>
-                        )}
-                      </button>
+                            {weekTrades.length > 0 && (
+                              <div
+                                style={{ background: toneBackground(weekTone, 42) }}
+                                className="flex w-full flex-col items-center justify-center gap-0.5 rounded-lg py-1.5"
+                              >
+                                <span
+                                  className={cn(
+                                    "text-lg font-extrabold tabular-nums",
+                                    weekTone === "positive" && "text-[#34d399]",
+                                    weekTone === "negative" && "text-[#fca5a5]",
+                                    weekTone === "warning" && "text-[var(--color-warning)]",
+                                  )}
+                                >
+                                  {weekTotalR > 0 ? "+" : ""}
+                                  {weekTotalR.toFixed(2)}R
+                                </span>
+                                <span className="text-xs tabular-nums">
+                                  <span className="text-[var(--color-success)]">{wins}W</span>{" "}
+                                  <span className="text-[var(--color-danger)]">{losses}L</span>
+                                </span>
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })()}
                     </Fragment>
                   );
                 })}
@@ -259,25 +315,31 @@ export function TradeCalendar({ trades, onSelectDay }: { trades: Trade[]; onSele
                   </div>
                   <div className="max-h-56 space-y-1.5 overflow-y-auto">
                     {selection.trades.map((t) => (
-                      <div
+                      <button
                         key={t.id}
-                        className="flex items-center justify-between rounded-md bg-[var(--color-background)] px-2 py-1.5 text-xs"
+                        onClick={() => setActiveTrade(t)}
+                        className="group flex w-full items-center justify-between rounded-md bg-[var(--color-background)] px-2 py-1.5 text-xs transition-colors hover:bg-[var(--color-primary)]/20"
                       >
-                        <span className="text-[var(--color-text-muted)]">{t.market ?? "—"}</span>
-                        <span
-                          className={cn(
-                            "font-semibold tabular-nums",
-                            t.result_r > 0
-                              ? "text-[var(--color-success)]"
-                              : t.result_r < 0
-                                ? "text-[var(--color-danger)]"
-                                : "text-[var(--color-warning)]",
-                          )}
-                        >
-                          {t.result_r > 0 ? "+" : ""}
-                          {t.result_r.toFixed(2)}R
+                        <span className="text-[var(--color-text-muted)] group-hover:text-[var(--color-text)]">
+                          {t.market ?? "—"}
                         </span>
-                      </div>
+                        <span className="flex items-center gap-1">
+                          <span
+                            className={cn(
+                              "font-semibold tabular-nums",
+                              t.result_r > 0
+                                ? "text-[var(--color-success)]"
+                                : t.result_r < 0
+                                  ? "text-[var(--color-danger)]"
+                                  : "text-[var(--color-warning)]",
+                            )}
+                          >
+                            {t.result_r > 0 ? "+" : ""}
+                            {t.result_r.toFixed(2)}R
+                          </span>
+                          <ChevronRight className="h-3 w-3 text-[var(--color-text-muted)] opacity-0 transition-opacity group-hover:opacity-100" />
+                        </span>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -286,6 +348,14 @@ export function TradeCalendar({ trades, onSelectDay }: { trades: Trade[]; onSele
           </div>
         </CardContent>
       )}
+
+      <TradeDetailModal
+        trade={activeTrade}
+        trades={selection?.trades ?? []}
+        variables={variables}
+        onClose={() => setActiveTrade(null)}
+        onNavigate={setActiveTrade}
+      />
     </Card>
   );
 }

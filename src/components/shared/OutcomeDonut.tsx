@@ -23,7 +23,7 @@ export function OutcomeDonut({
 
   return (
     <div className="flex h-full flex-col items-center justify-center gap-1">
-      <span className="text-sm font-bold tabular-nums text-[var(--color-success)]">{winPct}%</span>
+      <span className="text-sm font-bold tabular-nums text-[var(--color-success)]">{winPct}% TP</span>
       <div className="relative flex-1" style={{ minHeight: 0, width: "100%" }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -48,14 +48,10 @@ export function OutcomeDonut({
           <span className="text-[11px] text-[var(--color-text-muted)]">trades</span>
         </div>
       </div>
-      {bePct > 0 ? (
-        <span className="flex items-center gap-2 text-sm font-bold tabular-nums">
-          <span className="text-[var(--color-warning)]">{bePct}% BE</span>
-          <span className="text-[var(--color-danger)]">{lossPct}%</span>
-        </span>
-      ) : (
-        <span className="text-sm font-bold tabular-nums text-[var(--color-danger)]">{lossPct}%</span>
-      )}
+      <span className="flex items-center gap-2 text-sm font-bold tabular-nums">
+        {bePct > 0 && <span className="text-[var(--color-warning)]">{bePct}% BE</span>}
+        <span className="text-[var(--color-danger)]">{lossPct}% SL</span>
+      </span>
     </div>
   );
 }

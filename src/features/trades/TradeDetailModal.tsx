@@ -1,4 +1,6 @@
-import { ChevronLeft, ChevronRight, Pencil, Copy, Trash2, Image as ImageIcon } from "lucide-react";
+import { useState } from "react";
+import { ChevronLeft, ChevronRight, Pencil, Copy, Trash2, X } from "lucide-react";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +30,7 @@ export function TradeDetailModal({
   const { data: settings } = useSettings();
   const openAddTradeModal = useUiStore((s) => s.openAddTradeModal);
   const { deleteTrade, createTrade } = useTradeMutations();
+  const [lightbox, setLightbox] = useState<string | null>(null);
 
   if (!trade) return null;
   const index = trades.findIndex((t) => t.id === trade.id);
@@ -44,7 +47,7 @@ export function TradeDetailModal({
 
   return (
     <Dialog open={!!trade} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className={trade.screenshots && trade.screenshots.length > 0 ? "max-w-[52rem]" : "max-w-xl"}>
         <DialogHeader>
           <div className="flex items-center justify-between pr-6">
             <DialogTitle className="flex items-center gap-2">
@@ -98,12 +101,42 @@ export function TradeDetailModal({
         )}
 
         {trade.screenshots && trade.screenshots.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {trade.screenshots.map((s) => (
-              <div key={s.id} className="flex h-16 w-16 items-center justify-center rounded-md border border-[var(--color-border)]">
-                <ImageIcon className="h-5 w-5 text-[var(--color-text-muted)]" />
-              </div>
-            ))}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs font-medium text-[var(--color-text-muted)]">
+              <span>Screenshots</span>
+              <span>Click to zoom in</span>
+            </div>
+            <div className="space-y-2">
+              {trade.screenshots.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setLightbox(convertFileSrc(s.file_path))}
+                  className="block h-[380px] w-full overflow-hidden rounded-lg border border-[var(--color-border)] shadow-sm transition-opacity hover:opacity-90"
+                >
+                  <img
+                    src={convertFileSrc(s.file_path)}
+                    alt="Trade screenshot"
+                    className="h-full w-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {lightbox && (
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-8"
+            onClick={() => setLightbox(null)}
+          >
+            <img src={lightbox} alt="Trade screenshot" className="max-h-full max-w-full rounded-lg object-contain" />
+            <button
+              onClick={() => setLightbox(null)}
+              className="absolute right-6 top-6 rounded-full bg-black/50 p-2 text-white hover:bg-black/70"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
         )}
 

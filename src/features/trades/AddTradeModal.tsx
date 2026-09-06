@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Mic, Info, Image as ImageIcon, X, Trash2 } from "lucide-react";
+import { Mic, Info, Image as ImageIcon, X, Trash2, Loader2 } from "lucide-react";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +24,7 @@ import { useStrategies } from "@/features/strategy/useStrategies";
 import { useTradeMutations, useTrade } from "./useTrades";
 import { parseVoiceTrade } from "@/features/ai/voiceFill";
 import { useSettings } from "@/features/settings/useSettings";
+import { copyScreenshotsToAppData } from "@/lib/screenshots";
 
 const schema = z.object({
   entry_time: z.string().min(1, "Required"),
@@ -159,6 +161,8 @@ export function AddTradeModal() {
     close();
   }
 
+  const [screenshotBusy, setScreenshotBusy] = useState(false);
+
   async function handleAddScreenshot() {
     try {
       const { open: openDialog } = await import("@tauri-apps/plugin-dialog");
@@ -168,9 +172,13 @@ export function AddTradeModal() {
       });
       if (!selected) return;
       const paths = Array.isArray(selected) ? selected : [selected];
-      setScreenshots((prev) => [...prev, ...paths]);
+      setScreenshotBusy(true);
+      const copied = await copyScreenshotsToAppData(paths);
+      setScreenshots((prev) => [...prev, ...copied]);
     } catch (err) {
       console.warn("Screenshot picker unavailable in this environment", err);
+    } finally {
+      setScreenshotBusy(false);
     }
   }
 
@@ -389,9 +397,9 @@ export function AddTradeModal() {
                 <div
                   key={i}
                   title={path}
-                  className="relative flex h-16 w-16 items-center justify-center rounded-md border border-[var(--color-border)] bg-[var(--color-background)]"
+                  className="relative h-16 w-16 overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-background)]"
                 >
-                  <ImageIcon className="h-5 w-5 text-[var(--color-text-muted)]" />
+                  <img src={convertFileSrc(path)} alt="Screenshot" className="h-full w-full object-cover" />
                   <button
                     type="button"
                     onClick={() => setScreenshots((prev) => prev.filter((_, idx) => idx !== i))}
@@ -404,9 +412,14 @@ export function AddTradeModal() {
               <button
                 type="button"
                 onClick={handleAddScreenshot}
-                className="flex h-16 w-16 items-center justify-center rounded-md border border-dashed border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+                disabled={screenshotBusy}
+                className="flex h-16 w-16 items-center justify-center rounded-md border border-dashed border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] disabled:opacity-50"
               >
-                <ImageIcon className="h-5 w-5" />
+                {screenshotBusy ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <ImageIcon className="h-5 w-5" />
+                )}
               </button>
             </div>
           </div>
