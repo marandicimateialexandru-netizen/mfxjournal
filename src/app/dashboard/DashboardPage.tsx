@@ -1,8 +1,6 @@
 import { useMemo, useState } from "react";
 import {
   ResponsiveContainer,
-  AreaChart,
-  Area,
   BarChart,
   Bar,
   Cell,
@@ -40,6 +38,7 @@ import { IconBadge, toneForKey } from "@/components/shared/IconBadge";
 import { OutcomeDonut } from "@/components/shared/OutcomeDonut";
 import { AppScoreRadar } from "@/components/shared/AppScoreRadar";
 import { WinRateBar } from "@/components/shared/WinRateBar";
+import { EquityCurveChart } from "@/components/shared/EquityCurveChart";
 import { TradeCalendar } from "@/features/stats/TradeCalendar";
 import { formatR, formatPct } from "@/lib/format";
 import { chartTooltipProps } from "@/lib/chartTheme";
@@ -167,12 +166,21 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
-        <StatTile label="Total Trades" value={String(stats.totalTrades)} icon={Hash} iconTone="violet" />
+        <StatTile
+          label="Total Trades"
+          value={String(stats.totalTrades)}
+          icon={Hash}
+          iconTone="violet"
+          countTo={stats.totalTrades}
+          format={(n) => String(Math.round(n))}
+        />
         <StatTile
           label="Total R"
           value={fmt(stats.totalR)}
           icon={TrendingUp}
           tone={stats.totalR >= 0 ? "positive" : "negative"}
+          countTo={stats.totalR}
+          format={fmt}
         />
         <StatTile
           label="BE Rate"
@@ -180,8 +188,17 @@ export default function DashboardPage() {
           icon={Minus}
           iconTone={hideBeRateColor ? "slate" : "amber"}
           tone={hideBeRateColor ? "neutral" : "warning"}
+          countTo={stats.beRatePct}
+          format={(n) => formatPct(n)}
         />
-        <StatTile label="Avg R" value={fmt(stats.avgR)} icon={BarChart3} tone={stats.avgR >= 0 ? "positive" : "negative"} />
+        <StatTile
+          label="Avg R"
+          value={fmt(stats.avgR)}
+          icon={BarChart3}
+          tone={stats.avgR >= 0 ? "positive" : "negative"}
+          countTo={stats.avgR}
+          format={fmt}
+        />
         <StatTile
           label="Current Streak"
           value={stats.currentStreak.type === "none" ? "—" : `${stats.currentStreak.count} ${stats.currentStreak.type}`}
@@ -189,7 +206,14 @@ export default function DashboardPage() {
           iconTone={stats.currentStreak.type === "win" ? "green" : stats.currentStreak.type === "loss" ? "red" : "slate"}
           tone={stats.currentStreak.type === "win" ? "positive" : stats.currentStreak.type === "loss" ? "negative" : "neutral"}
         />
-        <StatTile label="Max Drawdown" value={fmt(-stats.maxDrawdownR)} icon={Percent} tone="negative" />
+        <StatTile
+          label="Max Drawdown"
+          value={fmt(-stats.maxDrawdownR)}
+          icon={Percent}
+          tone="negative"
+          countTo={-stats.maxDrawdownR}
+          format={fmt}
+        />
 
         <div className="col-span-2">
           <StatTile
@@ -198,6 +222,8 @@ export default function DashboardPage() {
             icon={Target}
             iconTone="teal"
             info="Wins / (Wins + Losses), breakevens excluded."
+            countTo={stats.winRatePct}
+            format={(n) => formatPct(n)}
             gauge={<ArcGauge winPct={stats.winRatePct} winLabel={stats.wins} lossLabel={stats.losses} width={84} />}
           />
         </div>
@@ -208,6 +234,8 @@ export default function DashboardPage() {
             icon={CalendarCheck}
             iconTone="teal"
             info="Share of trading days that closed net positive, using the breakeven range set in Settings."
+            countTo={dayWin.pct}
+            format={(n) => formatPct(n)}
             gauge={<ArcGauge winPct={dayWin.pct} winLabel={dayWin.wins} lossLabel={dayWin.losses} width={84} />}
           />
         </div>
@@ -218,6 +246,8 @@ export default function DashboardPage() {
             icon={GaugeIcon}
             iconTone="green"
             info="Sum of winning R divided by the absolute sum of losing R."
+            countTo={Number.isFinite(stats.profitFactor) ? stats.profitFactor : undefined}
+            format={(n) => n.toFixed(2)}
             gauge={
               <RadialGauge
                 value={Math.min(100, (Number.isFinite(stats.profitFactor) ? stats.profitFactor : 3) * (100 / 3))}
@@ -232,28 +262,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Equity Curve</CardTitle>
-          </CardHeader>
-          <CardContent className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={stats.equityCurve}>
-                <defs>
-                  <linearGradient id="equityFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--color-success)" stopOpacity={0.55} />
-                    <stop offset="100%" stopColor="var(--color-success)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                <XAxis dataKey="tradeIndex" tick={{ fontSize: 11 }} stroke="var(--color-text-muted)" />
-                <YAxis tick={{ fontSize: 11 }} stroke="var(--color-text-muted)" />
-                <Tooltip content={<EquityTooltip />} />
-                <Area type="monotone" dataKey="cumulativeR" stroke="var(--color-success)" fill="url(#equityFill)" strokeWidth={2.5} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        <EquityCurveChart equityCurve={stats.equityCurve} totalR={stats.totalR} />
 
         <Card>
           <CardHeader>
@@ -419,22 +428,6 @@ export default function DashboardPage() {
       )}
 
       <TradeCalendar trades={filteredTradesForSearch} variables={variables} />
-    </div>
-  );
-}
-
-function EquityTooltip({ active, payload }: { active?: boolean; payload?: { payload: { date: string; cumulativeR: number; tradeR: number } }[] }) {
-  if (!active || !payload?.length) return null;
-  const p = payload[0].payload;
-  return (
-    <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-xs shadow-lg">
-      <div className="mb-1 font-medium text-[var(--color-text)]">{format(new Date(p.date), "PP")}</div>
-      <div className="text-[var(--color-text-muted)]">
-        Cumulative: <span className="font-semibold text-[var(--color-text)] tabular-nums">{p.cumulativeR.toFixed(2)}R</span>
-      </div>
-      <div className={p.tradeR >= 0 ? "text-[var(--color-success)]" : "text-[var(--color-danger)]"}>
-        Trade: <span className="font-semibold tabular-nums">{p.tradeR >= 0 ? "+" : ""}{p.tradeR.toFixed(2)}R</span>
-      </div>
     </div>
   );
 }

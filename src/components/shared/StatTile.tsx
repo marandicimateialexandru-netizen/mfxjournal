@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { IconBadge, type IconTone } from "./IconBadge";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { useCountUp } from "@/lib/useCountUp";
 
 const TONE_TO_ICON_TONE: Record<string, IconTone> = {
   neutral: "violet",
@@ -22,6 +23,9 @@ export function StatTile({
   sub,
   info,
   gauge,
+  countTo,
+  format,
+  countDelay = 0,
 }: {
   label: string;
   value: string;
@@ -32,6 +36,11 @@ export function StatTile({
   info?: string;
   /** Optional gauge visual rendered on the right side of the tile (arc/ring gauges). */
   gauge?: React.ReactNode;
+  /** When set (with `format`), the displayed number animates up from 0 to this value on mount/change instead of showing `value` statically. */
+  countTo?: number;
+  format?: (n: number) => string;
+  /** Stagger the count-up start (ms) so a row of tiles animates in sequence rather than all at once. */
+  countDelay?: number;
 }) {
   const [animKey, setAnimKey] = useState(0);
   const prevValue = useRef(value);
@@ -41,6 +50,9 @@ export function StatTile({
       prevValue.current = value;
     }
   }, [value]);
+
+  const animated = useCountUp(countTo ?? 0, 1100, countDelay);
+  const displayValue = countTo != null && format ? format(animated) : value;
 
   const toneClass = {
     neutral: "text-[var(--color-text)]",
@@ -68,7 +80,7 @@ export function StatTile({
             )}
           </div>
           <div key={animKey} className={cn("mt-2 truncate text-2xl font-bold tabular-nums animate-count-up", toneClass)}>
-            {value}
+            {displayValue}
           </div>
           {sub && <div className="mt-0.5 truncate text-xs text-[var(--color-text-muted)]">{sub}</div>}
         </div>

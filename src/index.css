@@ -100,6 +100,16 @@ body {
   filter: drop-shadow(0 0 6px currentColor);
 }
 
+/* Recharts gives its SVG surface a default tabIndex for keyboard accessibility, so clicking
+   anywhere on any chart focuses it and the browser draws its default focus ring around the whole
+   surface (reads as a stray black box around the card). These charts aren't keyboard-navigated,
+   so it's safe to just suppress the ring rather than fighting it per chart. */
+.recharts-wrapper:focus,
+.recharts-wrapper *:focus,
+.recharts-surface:focus {
+  outline: none;
+}
+
 @keyframes radarPopIn {
   0% {
     opacity: 0;
