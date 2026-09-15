@@ -1,9 +1,10 @@
 import { select, execute } from "./client";
-import { createVariable, addVariableValue } from "./queries/variables";
+import { createVariable, addVariableValue, type VariableWithValues } from "./queries/variables";
 import { createTrade } from "./queries/trades";
 import { ensureDefaultStreakThresholds } from "./queries/streakThresholds";
+import { PERSONAL_VARIABLE_SET } from "@/features/variables/personalVariableSet";
 
-/** Ships a sensible default ICT/SMC-style Variable schema plus a handful of sample trades so the app isn't empty on first launch. */
+/** Ships the user's real variable taxonomy plus a handful of sample trades so the app isn't empty on first launch. */
 export async function seedIfEmpty(workspaceId: string): Promise<void> {
   const existingVars = await select<{ n: number }>(
     "SELECT COUNT(*) as n FROM variables WHERE workspace_id = ?",
@@ -13,22 +14,21 @@ export async function seedIfEmpty(workspaceId: string): Promise<void> {
 
   await ensureDefaultStreakThresholds(workspaceId);
 
-  const setup = await createVariable(workspaceId, { key: "setup", label: "Setup", type: "text", icon: "🎯" });
-  const setupValues = await Promise.all(
-    ["OTE", "Order Block", "FVG", "BOS", "Liquidity Sweep"].map((label) =>
-      addVariableValue(setup.id, label),
-    ),
-  );
+  const byKey = new Map<string, VariableWithValues>();
+  for (const v of PERSONAL_VARIABLE_SET.variables) {
+    const created = await createVariable(workspaceId, { key: v.key, label: v.label, type: v.type, icon: v.icon });
+    const values = await Promise.all(v.values.map((val) => addVariableValue(created.id, val.label, { icon: val.icon ?? undefined })));
+    byKey.set(v.key, { ...created, values });
+  }
 
-  const session = await createVariable(workspaceId, { key: "session", label: "Session", type: "text", icon: "🕐" });
-  const sessionValues = await Promise.all(
-    ["Asian", "London", "New York"].map((label) => addVariableValue(session.id, label)),
-  );
-
-  const news = await createVariable(workspaceId, { key: "news", label: "News", type: "text", icon: "📰" });
-  const newsValues = await Promise.all(
-    ["High Impact", "Medium Impact", "None"].map((label) => addVariableValue(news.id, label)),
-  );
+  const setup = byKey.get("setup")!;
+  const session = byKey.get("session")!;
+  const news = byKey.get("news")!;
+  const direction = byKey.get("direction")!;
+  const setupValues = setup.values;
+  const sessionValues = session.values;
+  const newsValues = news.values;
+  const directionValues = direction.values;
 
   const daysAgo = (n: number, hour: number) => {
     const d = new Date();
@@ -44,11 +44,12 @@ export async function seedIfEmpty(workspaceId: string): Promise<void> {
       risk_r: 1,
       result_r: 2.4,
       market: "EURUSD",
-      notes: "Clean OTE entry off the London open sweep, held for target.",
+      notes: "Clean OSG entry off the morning liquidity sweep, held for target.",
       variableValues: {
         [setup.id]: { valueId: setupValues[0].id },
-        [session.id]: { valueId: sessionValues[1].id },
-        [news.id]: { valueId: newsValues[2].id },
+        [session.id]: { valueId: sessionValues[0].id },
+        [news.id]: { valueId: newsValues[0].id },
+        [direction.id]: { valueId: directionValues[0].id },
       },
     },
     {
@@ -57,11 +58,12 @@ export async function seedIfEmpty(workspaceId: string): Promise<void> {
       risk_r: 1,
       result_r: -1,
       market: "GBPUSD",
-      notes: "Order block held then failed on a red folder headline. Should have skipped it.",
+      notes: "TG held then failed straight into a US CPI print. Should have skipped it.",
       variableValues: {
         [setup.id]: { valueId: setupValues[1].id },
         [session.id]: { valueId: sessionValues[1].id },
-        [news.id]: { valueId: newsValues[0].id },
+        [news.id]: { valueId: newsValues[5].id },
+        [direction.id]: { valueId: directionValues[1].id },
       },
     },
     {
@@ -70,11 +72,12 @@ export async function seedIfEmpty(workspaceId: string): Promise<void> {
       risk_r: 1,
       result_r: 1.8,
       market: "USDJPY",
-      notes: "Asian session liquidity sweep, quick reversal into FVG fill.",
+      notes: "SLG+3CG liquidity sweep in the evening session, quick reversal into the fill.",
       variableValues: {
-        [setup.id]: { valueId: setupValues[4].id },
-        [session.id]: { valueId: sessionValues[0].id },
-        [news.id]: { valueId: newsValues[2].id },
+        [setup.id]: { valueId: setupValues[9].id },
+        [session.id]: { valueId: sessionValues[2].id },
+        [news.id]: { valueId: newsValues[0].id },
+        [direction.id]: { valueId: directionValues[0].id },
       },
     },
     {
@@ -86,8 +89,9 @@ export async function seedIfEmpty(workspaceId: string): Promise<void> {
       notes: "Scratched at breakeven when structure invalidated early.",
       variableValues: {
         [setup.id]: { valueId: setupValues[2].id },
-        [session.id]: { valueId: sessionValues[1].id },
-        [news.id]: { valueId: newsValues[1].id },
+        [session.id]: { valueId: sessionValues[0].id },
+        [news.id]: { valueId: newsValues[8].id },
+        [direction.id]: { valueId: directionValues[1].id },
       },
     },
     {
@@ -96,11 +100,12 @@ export async function seedIfEmpty(workspaceId: string): Promise<void> {
       risk_r: 1,
       result_r: 3.1,
       market: "XAUUSD",
-      notes: "BOS confirmation into New York open, best trade of the week.",
+      notes: "3G confirmation into the day session, best trade of the week.",
       variableValues: {
         [setup.id]: { valueId: setupValues[3].id },
-        [session.id]: { valueId: sessionValues[2].id },
-        [news.id]: { valueId: newsValues[2].id },
+        [session.id]: { valueId: sessionValues[1].id },
+        [news.id]: { valueId: newsValues[0].id },
+        [direction.id]: { valueId: directionValues[0].id },
       },
     },
   ];

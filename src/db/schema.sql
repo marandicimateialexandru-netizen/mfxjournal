@@ -43,7 +43,8 @@ CREATE TABLE IF NOT EXISTS custom_results (
   id TEXT PRIMARY KEY,
   workspace_id TEXT NOT NULL REFERENCES workspaces(id),
   label TEXT NOT NULL,
-  maps_to TEXT NOT NULL CHECK (maps_to IN ('win','loss','be'))
+  maps_to TEXT NOT NULL CHECK (maps_to IN ('win','loss','be')),
+  icon TEXT
 );
 
 CREATE TABLE IF NOT EXISTS markets (
@@ -131,7 +132,20 @@ CREATE TABLE IF NOT EXISTS settings (
   ai_api_key TEXT,
   ai_task_assistant_enabled INTEGER NOT NULL DEFAULT 1,
   mindset_coach_enabled INTEGER NOT NULL DEFAULT 1,
-  voice_input_enabled INTEGER NOT NULL DEFAULT 1
+  voice_input_enabled INTEGER NOT NULL DEFAULT 1,
+  accounts_enabled INTEGER NOT NULL DEFAULT 0,
+  streak_analysis_enabled INTEGER NOT NULL DEFAULT 0,
+  streak_be_breaks_streak INTEGER NOT NULL DEFAULT 1,
+  variables_card_order TEXT
+);
+
+CREATE TABLE IF NOT EXISTS variable_templates (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+  name TEXT NOT NULL,
+  description TEXT,
+  data TEXT NOT NULL,
+  created_at TEXT NOT NULL
 );
 
 -- extra tables not in the original spec's SQL block but required by pages described in prose:

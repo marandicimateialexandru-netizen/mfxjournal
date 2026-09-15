@@ -3,7 +3,10 @@ import * as customResultsApi from "@/db/queries/customResults";
 import * as marketsApi from "@/db/queries/markets";
 import * as accountsApi from "@/db/queries/accounts";
 import * as streakApi from "@/db/queries/streakThresholds";
+import * as templatesApi from "@/db/queries/templates";
 import { useWorkspaceStore } from "@/store/workspaceStore";
+import { BUILT_IN_TEMPLATES } from "./builtInTemplates";
+import type { TemplateData } from "@/db/types";
 
 export function useCustomResults() {
   const workspaceId = useWorkspaceStore((s) => s.workspaceId);
@@ -15,8 +18,8 @@ export function useCustomResults() {
   });
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["customResults", workspaceId] });
   const create = useMutation({
-    mutationFn: ({ label, mapsTo }: { label: string; mapsTo: "win" | "loss" | "be" }) =>
-      customResultsApi.createCustomResult(workspaceId!, label, mapsTo),
+    mutationFn: ({ label, mapsTo, icon }: { label: string; mapsTo: "win" | "loss" | "be"; icon?: string | null }) =>
+      customResultsApi.createCustomResult(workspaceId!, label, mapsTo, icon),
     onSuccess: invalidate,
   });
   const remove = useMutation({
@@ -90,4 +93,41 @@ export function useStreakThresholds() {
     onSuccess: invalidate,
   });
   return { ...query, add, update, remove };
+}
+
+export interface TemplateOption {
+  id: string;
+  name: string;
+  description: string | null;
+  data: TemplateData;
+  isBuiltIn: boolean;
+}
+
+export function useTemplates() {
+  const workspaceId = useWorkspaceStore((s) => s.workspaceId);
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    queryKey: ["variableTemplates", workspaceId],
+    queryFn: () => templatesApi.listTemplates(workspaceId!),
+    enabled: !!workspaceId,
+  });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["variableTemplates", workspaceId] });
+  const create = useMutation({
+    mutationFn: ({ name, description, data }: { name: string; description: string | null; data: TemplateData }) =>
+      templatesApi.createTemplate(workspaceId!, name, description, data),
+    onSuccess: invalidate,
+  });
+
+  const options: TemplateOption[] = [
+    ...BUILT_IN_TEMPLATES.map((t) => ({ id: t.id, name: t.name, description: t.description, data: t.data, isBuiltIn: true })),
+    ...(query.data ?? []).map((t) => ({
+      id: t.id,
+      name: t.name,
+      description: t.description,
+      data: JSON.parse(t.data) as TemplateData,
+      isBuiltIn: false,
+    })),
+  ];
+
+  return { ...query, options, create };
 }

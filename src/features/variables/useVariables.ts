@@ -39,6 +39,11 @@ export function useVariableMutations() {
     onSuccess: invalidate,
   });
 
+  const reorderVariableValues = useMutation({
+    mutationFn: (orderedIds: string[]) => api.reorderVariableValues(orderedIds),
+    onSuccess: invalidate,
+  });
+
   const addValue = useMutation({
     mutationFn: ({ variableId, label, opts }: { variableId: string; label: string; opts?: { icon?: string; color?: string } }) =>
       api.addVariableValue(variableId, label, opts),
@@ -61,5 +66,15 @@ export function useVariableMutations() {
     onSuccess: invalidate,
   });
 
-  return { createVariable, updateVariable, deleteVariable, reorderVariables, addValue, updateValue, deleteValue, clearAll };
+  return {
+    createVariable,
+    updateVariable,
+    deleteVariable,
+    reorderVariables,
+    reorderVariableValues,
+    addValue,
+    updateValue,
+    deleteValue,
+    clearAll,
+  };
 }

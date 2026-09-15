@@ -47,6 +47,33 @@ export interface CustomResult {
   workspace_id: string;
   label: string;
   maps_to: "win" | "loss" | "be";
+  icon: string | null;
+}
+
+export interface VariableTemplate {
+  id: string;
+  workspace_id: string;
+  name: string;
+  description: string | null;
+  data: string; // JSON-serialized TemplateData
+  created_at: string;
+}
+
+export interface TemplateVariableValue {
+  label: string;
+  icon: string | null;
+}
+
+export interface TemplateVariable {
+  key: string;
+  label: string;
+  type: VariableType;
+  icon: string | null;
+  values: TemplateVariableValue[];
+}
+
+export interface TemplateData {
+  variables: TemplateVariable[];
 }
 
 export interface Market {
@@ -146,4 +173,8 @@ export interface Settings {
   ai_task_assistant_enabled: number;
   mindset_coach_enabled: number;
   voice_input_enabled: number;
+  accounts_enabled: number;
+  streak_analysis_enabled: number;
+  streak_be_breaks_streak: number;
+  variables_card_order: string | null; // JSON-serialized string[] of card keys
 }

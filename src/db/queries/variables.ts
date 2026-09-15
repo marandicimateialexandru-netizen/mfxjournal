@@ -117,6 +117,12 @@ export async function updateVariableValue(
   );
 }
 
+export async function reorderVariableValues(orderedIds: string[]): Promise<void> {
+  await Promise.all(
+    orderedIds.map((id, index) => execute("UPDATE variable_values SET sort_order = ? WHERE id = ?", [index, id])),
+  );
+}
+
 export async function deleteVariableValue(id: string): Promise<void> {
   await execute("DELETE FROM trade_variable_values WHERE value_id = ?", [id]);
   await execute("DELETE FROM variable_values WHERE id = ?", [id]);

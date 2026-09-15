@@ -10,13 +10,15 @@ export async function createCustomResult(
   workspaceId: string,
   label: string,
   mapsTo: "win" | "loss" | "be",
+  icon?: string | null,
 ): Promise<CustomResult> {
-  const result: CustomResult = { id: newId(), workspace_id: workspaceId, label, maps_to: mapsTo };
-  await execute("INSERT INTO custom_results (id, workspace_id, label, maps_to) VALUES (?, ?, ?, ?)", [
+  const result: CustomResult = { id: newId(), workspace_id: workspaceId, label, maps_to: mapsTo, icon: icon ?? null };
+  await execute("INSERT INTO custom_results (id, workspace_id, label, maps_to, icon) VALUES (?, ?, ?, ?, ?)", [
     result.id,
     result.workspace_id,
     result.label,
     result.maps_to,
+    result.icon,
   ]);
   return result;
 }

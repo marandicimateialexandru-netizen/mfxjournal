@@ -220,7 +220,7 @@ describe("computeStats — custom results mapping", () => {
   it("resolves a custom result label to its underlying win/loss/be category", () => {
     const trades = [trade("t1", 1, "missed-entry", 0)];
     const result = computeStats(trades, {
-      customResults: [{ id: "missed-entry", workspace_id: "ws1", label: "Missed Entry", maps_to: "be" }],
+      customResults: [{ id: "missed-entry", workspace_id: "ws1", label: "Missed Entry", maps_to: "be", icon: null }],
     });
     expect(result.breakEvens).toBe(1);
   });
