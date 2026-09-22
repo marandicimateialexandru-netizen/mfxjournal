@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -9,14 +9,21 @@ import {
   Trash2,
   Loader2,
   Check,
-  CalendarClock,
-  Tags,
-  StickyNote,
-  Camera,
+  Receipt,
+  SlidersHorizontal,
+  NotebookPen,
+  Images,
+  Calendar,
+  Globe2,
+  ShieldAlert,
+  TrendingUp,
   LogIn,
   Layers,
   CandlestickChart,
   Sparkles,
+  RefreshCw,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import {
@@ -65,19 +72,72 @@ function toDatetimeLocal(iso?: string | null): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function SectionHeader({ icon: Icon, children }: { icon: React.ElementType; children: React.ReactNode }) {
+function SectionHeader({
+  icon,
+  tone,
+  title,
+  subtitle,
+}: {
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties; strokeWidth?: number }>;
+  tone: Parameters<typeof IconBadge>[0]["tone"];
+  title: string;
+  subtitle?: string;
+}) {
   return (
-    <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-      <Icon className="h-3.5 w-3.5" />
-      {children}
+    <div className="flex items-center gap-2.5">
+      <IconBadge icon={icon} tone={tone} size={30} className="shrink-0" />
+      <div className="min-w-0">
+        <div className="text-sm font-semibold text-[var(--color-text)]">{title}</div>
+        {subtitle && <div className="text-[11px] text-[var(--color-text-muted)]">{subtitle}</div>}
+      </div>
     </div>
   );
 }
 
-const OUTCOME_STYLES: Record<"win" | "loss" | "be", { active: string; ring: string }> = {
-  win: { active: "border-[var(--color-success)] bg-[var(--color-success)]/15 text-[var(--color-success)]", ring: "ring-[var(--color-success)]/40" },
-  loss: { active: "border-[var(--color-danger)] bg-[var(--color-danger)]/15 text-[var(--color-danger)]", ring: "ring-[var(--color-danger)]/40" },
-  be: { active: "border-[var(--color-warning)] bg-[var(--color-warning)]/15 text-[var(--color-warning)]", ring: "ring-[var(--color-warning)]/40" },
+/** A small inline icon glyph for field labels — quieter than a SectionHeader badge, just enough to add texture. */
+function FieldIcon({ icon: Icon }: { icon: React.ComponentType<{ className?: string }> }) {
+  return <Icon className="h-3 w-3 text-[var(--color-text-muted)]" />;
+}
+
+/** Matches IconBadge's own gradient palette, so each section's accent bar reads as "the same color" as its badge. */
+const TONE_GRADIENT: Record<string, string> = {
+  violet: "linear-gradient(90deg, #8b5cf6, #6366f1)",
+  green: "linear-gradient(90deg, #34d399, #059669)",
+  red: "linear-gradient(90deg, #f87171, #dc2626)",
+  amber: "linear-gradient(90deg, #fbbf24, #d97706)",
+  teal: "linear-gradient(90deg, #2dd4bf, #0891b2)",
+  blue: "linear-gradient(90deg, #60a5fa, #2563eb)",
+  rose: "linear-gradient(90deg, #fb7185, #e11d48)",
+  slate: "linear-gradient(90deg, #94a3b8, #475569)",
+};
+
+/** A consistent elevated panel for every form section — border, subtle surface lift, and a colored accent
+ * bar along the top so each section reads as its own distinct "card" instead of blending into the page. */
+function SectionCard({ tone, children }: { tone: Parameters<typeof IconBadge>[0]["tone"]; children: React.ReactNode }) {
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-lg shadow-black/25 transition-shadow duration-300 focus-within:shadow-xl">
+      <div className="absolute inset-x-0 top-0 h-1" style={{ background: TONE_GRADIENT[tone as string] }} />
+      <div className="space-y-3.5">{children}</div>
+    </div>
+  );
+}
+
+const OUTCOME_STYLES: Record<"win" | "loss" | "be", { active: string; ring: string; glow: string }> = {
+  win: {
+    active: "border-[var(--color-success)] bg-[var(--color-success)]/15 text-[var(--color-success)]",
+    ring: "ring-[var(--color-success)]/40",
+    glow: "shadow-[0_0_16px_-2px_var(--color-success)]",
+  },
+  loss: {
+    active: "border-[var(--color-danger)] bg-[var(--color-danger)]/15 text-[var(--color-danger)]",
+    ring: "ring-[var(--color-danger)]/40",
+    glow: "shadow-[0_0_16px_-2px_var(--color-danger)]",
+  },
+  be: {
+    active: "border-[var(--color-warning)] bg-[var(--color-warning)]/15 text-[var(--color-warning)]",
+    ring: "ring-[var(--color-warning)]/40",
+    glow: "shadow-[0_0_16px_-2px_var(--color-warning)]",
+  },
 };
 
 export function AddTradeModal() {
@@ -98,6 +158,7 @@ export function AddTradeModal() {
   const [liquidityScreenshot, setLiquidityScreenshot] = useState<string | null>(null);
   const [entryBusy, setEntryBusy] = useState(false);
   const [liquidityBusy, setLiquidityBusy] = useState(false);
+  const [lightbox, setLightbox] = useState<{ path: string; label: string } | null>(null);
   const [voiceStatus, setVoiceStatus] = useState<"idle" | "listening" | "processing">("idle");
   const [voiceError, setVoiceError] = useState<string | null>(null);
 
@@ -277,12 +338,15 @@ export function AddTradeModal() {
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && close()}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
-          <div className="flex items-center gap-2.5">
-            <IconBadge icon={CandlestickChart} tone="violet" size={34} className="shrink-0" />
+          <div className="flex items-center gap-3">
+            <div className="relative shrink-0">
+              <div className="absolute inset-0 -z-10 rounded-[10px] bg-[var(--color-primary)] opacity-70 blur-lg" />
+              <IconBadge icon={CandlestickChart} tone="violet" size={38} />
+            </div>
             <div className="min-w-0">
-              <DialogTitle>{existingTrade ? "Edit Trade" : "New Trade"}</DialogTitle>
+              <DialogTitle className="text-xl">{existingTrade ? "Edit Trade" : "New Trade"}</DialogTitle>
               <p className="text-xs text-[var(--color-text-muted)]">
                 {existingTrade ? "Update the details of this trade" : "Log a trade and tag it against your variables"}
               </p>
@@ -292,35 +356,41 @@ export function AddTradeModal() {
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           {voiceInputEnabled && (
-            <div className="flex items-center gap-2 rounded-lg border border-[var(--color-primary)]/30 bg-gradient-to-r from-[var(--color-primary)]/10 to-transparent p-2.5">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={handleVoiceFill}
-                disabled={voiceStatus !== "idle" || !speechSupported}
-              >
-                {voiceStatus === "idle" ? <Sparkles className="h-4 w-4" /> : <Mic className="h-4 w-4 animate-pulse" />}
-                {voiceStatus === "listening" ? "Listening…" : voiceStatus === "processing" ? "Parsing…" : "Voice Fill"}
-              </Button>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Info className="h-4 w-4 shrink-0 text-[var(--color-text-muted)] cursor-help" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  Say things like "Win, 2R, EURUSD, setup OTE". You can also say "change setup to BOS"
-                  to correct fields, or "today at 8am" for dates.
-                </TooltipContent>
-              </Tooltip>
-              {!speechSupported && (
-                <span className="text-xs text-[var(--color-text-muted)]">Not supported in this webview</span>
-              )}
-              {voiceError && <span className="text-xs text-[var(--color-danger)]">{voiceError}</span>}
+            <div className="relative overflow-hidden rounded-xl border border-violet-400/40 bg-gradient-to-r from-violet-950 via-indigo-950 to-[var(--color-surface)] p-3 shadow-lg shadow-black/25">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleVoiceFill}
+                  disabled={voiceStatus !== "idle" || !speechSupported}
+                  className="border-violet-400/50 bg-violet-500/25 hover:bg-violet-500/40"
+                >
+                  {voiceStatus === "idle" ? <Sparkles className="h-4 w-4 text-violet-200" /> : <Mic className="h-4 w-4 animate-pulse text-violet-200" />}
+                  {voiceStatus === "listening" ? "Listening…" : voiceStatus === "processing" ? "Parsing…" : "Voice Fill"}
+                </Button>
+                <span className="rounded-full bg-violet-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm shadow-violet-900">
+                  AI
+                </span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-4 w-4 shrink-0 text-[var(--color-text-muted)] cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Say things like "Win, 2R, EURUSD, setup OTE". You can also say "change setup to BOS"
+                    to correct fields, or "today at 8am" for dates.
+                  </TooltipContent>
+                </Tooltip>
+                {!speechSupported && (
+                  <span className="text-xs text-[var(--color-text-muted)]">Not supported in this webview</span>
+                )}
+                {voiceError && <span className="text-xs text-[var(--color-danger)]">{voiceError}</span>}
+              </div>
             </div>
           )}
 
-          <div className="space-y-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)]/50 p-3.5">
-            <SectionHeader icon={CalendarClock}>Trade Details</SectionHeader>
+          <SectionCard tone="blue">
+            <SectionHeader icon={Receipt} tone="blue" title="Trade Details" subtitle="Entry, outcome, risk & market" />
 
             <div className="space-y-1.5">
               <Label>Outcome</Label>
@@ -338,10 +408,10 @@ export function AddTradeModal() {
                           type="button"
                           onClick={() => field.onChange(o.id)}
                           className={cn(
-                            "flex items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
+                            "flex items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-medium transition-all duration-200",
                             active
-                              ? cn(style.active, "ring-2", style.ring)
-                              : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]",
+                              ? cn(style.active, "ring-2 scale-105", style.ring, style.glow)
+                              : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:scale-105 hover:text-[var(--color-text)]",
                           )}
                         >
                           {active && <Check className="h-3.5 w-3.5" />}
@@ -357,7 +427,9 @@ export function AddTradeModal() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Entry Date & Time</Label>
+                <Label className="flex items-center gap-1">
+                  <FieldIcon icon={Calendar} /> Entry Date & Time
+                </Label>
                 <Input type="datetime-local" {...register("entry_time")} />
                 {errors.entry_time && <p className="text-xs text-[var(--color-danger)]">{errors.entry_time.message}</p>}
                 <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
@@ -367,17 +439,23 @@ export function AddTradeModal() {
               </div>
 
               <div className="space-y-1.5">
-                <Label>Market</Label>
+                <Label className="flex items-center gap-1">
+                  <FieldIcon icon={Globe2} /> Market
+                </Label>
                 <Input placeholder="EURUSD" {...register("market")} />
               </div>
 
               <div className="space-y-1.5">
-                <Label>Risk (R)</Label>
+                <Label className="flex items-center gap-1">
+                  <FieldIcon icon={ShieldAlert} /> Risk (R)
+                </Label>
                 <Input type="number" step="0.1" {...register("risk_r")} />
               </div>
 
               <div className="space-y-1.5">
-                <Label>Result (R)</Label>
+                <Label className="flex items-center gap-1">
+                  <FieldIcon icon={TrendingUp} /> Result (R)
+                </Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -394,7 +472,7 @@ export function AddTradeModal() {
               {strategies.length > 0 && (
                 <div className="col-span-2 space-y-1.5">
                   <Label className="flex items-center gap-1">
-                    <Layers className="h-3 w-3" /> Strategy
+                    <FieldIcon icon={Layers} /> Strategy
                   </Label>
                   <Controller
                     control={control}
@@ -417,16 +495,19 @@ export function AddTradeModal() {
                 </div>
               )}
             </div>
-          </div>
+          </SectionCard>
 
           {variables.length > 0 && (
-            <div className="space-y-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)]/50 p-3.5">
-              <SectionHeader icon={Tags}>Variables</SectionHeader>
+            <SectionCard tone="teal">
+              <SectionHeader icon={SlidersHorizontal} tone="teal" title="Variables" subtitle={`${variables.length} configured dimension${variables.length === 1 ? "" : "s"}`} />
               <div className="grid grid-cols-2 gap-3">
                 {variables.map((v) => {
                   const match = getTradingIcon(v.label) ?? getTradingIcon(v.key);
                   return (
-                    <div key={v.id} className="space-y-1.5">
+                    <div
+                      key={v.id}
+                      className="space-y-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] p-2.5 shadow-sm shadow-black/20 transition-colors duration-150 hover:border-[var(--color-primary)]/40 focus-within:border-[var(--color-primary)]/60"
+                    >
                       <Label className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
                         {match ? (
                           <IconBadge icon={match.icon} tone={match.tone} size={18} />
@@ -470,17 +551,17 @@ export function AddTradeModal() {
                   );
                 })}
               </div>
-            </div>
+            </SectionCard>
           )}
 
-          <div className="space-y-1.5">
-            <SectionHeader icon={StickyNote}>Notes</SectionHeader>
+          <SectionCard tone="amber">
+            <SectionHeader icon={NotebookPen} tone="amber" title="Notes" subtitle="What happened, what you learned" />
             <Textarea rows={3} placeholder="What happened? What did you learn?" {...register("notes")} />
-          </div>
+          </SectionCard>
 
-          <div className="space-y-1.5">
-            <SectionHeader icon={Camera}>Screenshots</SectionHeader>
-            <div className="grid grid-cols-2 gap-3">
+          <SectionCard tone="rose">
+            <SectionHeader icon={Images} tone="rose" title="Screenshots" subtitle="Entry & liquidity context" />
+            <div className="space-y-3">
               <ScreenshotSlot
                 label="Entry"
                 icon={LogIn}
@@ -489,6 +570,7 @@ export function AddTradeModal() {
                 busy={entryBusy}
                 onUpload={() => handleUploadSlot("Entry")}
                 onClear={() => setEntryScreenshot(null)}
+                onView={() => entryScreenshot && setLightbox({ path: entryScreenshot, label: "Entry" })}
               />
               <ScreenshotSlot
                 label="Liquidity"
@@ -498,9 +580,10 @@ export function AddTradeModal() {
                 busy={liquidityBusy}
                 onUpload={() => handleUploadSlot("Liquidity")}
                 onClear={() => setLiquidityScreenshot(null)}
+                onView={() => liquidityScreenshot && setLightbox({ path: liquidityScreenshot, label: "Liquidity" })}
               />
             </div>
-          </div>
+          </SectionCard>
 
           <DialogFooter>
             {existingTrade && (
@@ -525,6 +608,10 @@ export function AddTradeModal() {
           </DialogFooter>
         </form>
       </DialogContent>
+
+      {lightbox && (
+        <ImageLightbox path={lightbox.path} label={lightbox.label} onClose={() => setLightbox(null)} />
+      )}
     </Dialog>
   );
 }
@@ -537,6 +624,7 @@ function ScreenshotSlot({
   busy,
   onUpload,
   onClear,
+  onView,
 }: {
   label: string;
   icon: React.ComponentType<{ className?: string; style?: React.CSSProperties; strokeWidth?: number }>;
@@ -545,24 +633,65 @@ function ScreenshotSlot({
   busy: boolean;
   onUpload: () => void;
   onClear: () => void;
+  onView: () => void;
 }) {
+  const [ratio, setRatio] = useState<number | null>(null);
+
+  useEffect(() => {
+    setRatio(null);
+  }, [path]);
+
   if (path) {
     return (
-      <div className="group relative h-40 overflow-hidden rounded-lg border border-[var(--color-border)] shadow-sm">
-        <img src={convertFileSrc(path)} alt={label} className="h-full w-full object-cover" />
-        <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm">
-          <Icon className="h-3 w-3" /> {label}
-        </span>
-        <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/0 opacity-0 transition-all group-hover:bg-black/40 group-hover:opacity-100">
-          <Button type="button" size="sm" variant="secondary" onClick={onUpload}>
-            Replace
-          </Button>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onView}
+        onKeyDown={(e) => e.key === "Enter" && onView()}
+        style={{ aspectRatio: ratio ?? 16 / 9 }}
+        className="group relative w-full cursor-zoom-in overflow-hidden rounded-xl border border-[var(--color-border)] bg-black shadow-md transition-[box-shadow,aspect-ratio] duration-300 hover:shadow-xl hover:shadow-black/20"
+      >
+        <img
+          src={convertFileSrc(path)}
+          alt={label}
+          onLoad={(e) => {
+            const el = e.currentTarget;
+            if (el.naturalWidth && el.naturalHeight) setRatio(el.naturalWidth / el.naturalHeight);
+          }}
+          className="h-full w-full object-contain transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+        />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between p-3">
+          <span className="flex items-center gap-1.5 text-sm font-semibold text-white drop-shadow">
+            <IconBadge icon={Icon} tone={tone} size={26} />
+            {label}
+          </span>
+          <span className="flex items-center gap-1 rounded-full bg-black/50 px-2 py-1 text-[11px] text-white opacity-0 backdrop-blur-sm transition-opacity duration-200 group-hover:opacity-100">
+            <ZoomIn className="h-3 w-3" /> Click to zoom
+          </span>
+        </div>
+        <div className="absolute right-2.5 top-2.5 flex gap-1.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
           <button
             type="button"
-            onClick={onClear}
-            className="rounded-full bg-[var(--color-danger)] p-1.5"
+            onClick={(e) => {
+              e.stopPropagation();
+              onUpload();
+            }}
+            title="Replace"
+            className="rounded-full bg-black/55 p-2 text-white backdrop-blur-sm transition-colors hover:bg-[var(--color-primary)]"
           >
-            <X className="h-3.5 w-3.5 text-white" />
+            <RefreshCw className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClear();
+            }}
+            title="Remove"
+            className="rounded-full bg-black/55 p-2 text-white backdrop-blur-sm transition-colors hover:bg-[var(--color-danger)]"
+          >
+            <X className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
@@ -574,15 +703,133 @@ function ScreenshotSlot({
       type="button"
       onClick={onUpload}
       disabled={busy}
-      className="flex h-40 flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[var(--color-border)] text-[var(--color-text-muted)] transition-colors hover:border-[var(--color-primary)]/50 hover:text-[var(--color-text)] disabled:opacity-50"
+      className="group flex aspect-video w-full flex-col items-center justify-center gap-2.5 rounded-xl border-2 border-dashed border-[var(--color-border)] text-[var(--color-text-muted)] transition-all duration-200 hover:scale-[1.01] hover:border-[var(--color-primary)]/60 hover:bg-[var(--color-primary)]/5 hover:text-[var(--color-text)] hover:shadow-lg disabled:opacity-50 disabled:hover:scale-100"
     >
       {busy ? (
-        <Loader2 className="h-6 w-6 animate-spin" />
+        <Loader2 className="h-8 w-8 animate-spin" />
       ) : (
-        <IconBadge icon={Icon} tone={tone} size={36} />
+        <div className="transition-transform duration-200 group-hover:scale-110">
+          <IconBadge icon={Icon} tone={tone} size={52} />
+        </div>
       )}
-      <span className="text-sm font-medium">{label}</span>
-      <span className="text-[11px]">Click to upload</span>
+      <span className="text-base font-semibold">{label}</span>
+      <span className="text-xs">Click to upload a screenshot</span>
     </button>
+  );
+}
+
+const ZOOM_MIN = 1;
+const ZOOM_MAX = 5;
+
+function ImageLightbox({ path, label, onClose }: { path: string; label: string; onClose: () => void }) {
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const dragRef = useRef<{ startX: number; startY: number; panX: number; panY: number } | null>(null);
+
+  function clampZoom(z: number) {
+    return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
+  }
+
+  function applyZoom(next: number) {
+    const clamped = clampZoom(next);
+    setZoom(clamped);
+    if (clamped === ZOOM_MIN) setPan({ x: 0, y: 0 });
+  }
+
+  function handleWheel(e: React.WheelEvent) {
+    e.preventDefault();
+    applyZoom(zoom - e.deltaY * 0.0018 * zoom);
+  }
+
+  function handleMouseDown(e: React.MouseEvent) {
+    if (zoom <= ZOOM_MIN) return;
+    dragRef.current = { startX: e.clientX, startY: e.clientY, panX: pan.x, panY: pan.y };
+  }
+  function handleMouseMove(e: React.MouseEvent) {
+    if (!dragRef.current) return;
+    setPan({ x: dragRef.current.panX + (e.clientX - dragRef.current.startX), y: dragRef.current.panY + (e.clientY - dragRef.current.startY) });
+  }
+  function endDrag() {
+    dragRef.current = null;
+  }
+
+  function toggleZoom() {
+    if (zoom > ZOOM_MIN) applyZoom(1);
+    else applyZoom(2.5);
+  }
+
+  // A real nested Radix Dialog, not a hand-rolled fixed div — Radix tracks its own stack of open
+  // dismissable layers, so this reliably renders above the parent New Trade dialog and outside-click/Escape
+  // only ever dismisses this (topmost) layer instead of both at once.
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent
+        hideClose
+        className="inset-0 top-0 left-0 right-0 bottom-0 flex h-screen max-h-screen w-screen max-w-none translate-x-0 translate-y-0 items-center justify-center gap-0 rounded-none border-none bg-black/90 p-3 shadow-none"
+        onClick={onClose}
+      >
+        <span className="absolute left-6 top-6 flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-sm">
+          <ZoomIn className="h-3.5 w-3.5" /> {label}
+        </span>
+
+        <div
+          className="absolute right-6 top-6 flex items-center gap-1 rounded-full border border-white/10 bg-black/45 p-1.5 shadow-xl backdrop-blur-md"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={() => applyZoom(zoom - 0.6)}
+            title="Zoom out"
+            className="rounded-full p-2 text-white transition-colors hover:bg-white/15"
+          >
+            <ZoomOut className="h-4 w-4" />
+          </button>
+          <span className="min-w-[3.5ch] text-center text-xs font-medium tabular-nums text-white/85">{Math.round(zoom * 100)}%</span>
+          <button
+            type="button"
+            onClick={() => applyZoom(zoom + 0.6)}
+            title="Zoom in"
+            className="rounded-full p-2 text-white transition-colors hover:bg-white/15"
+          >
+            <ZoomIn className="h-4 w-4" />
+          </button>
+          <div className="mx-1 h-5 w-px bg-white/15" />
+          <button
+            type="button"
+            onClick={onClose}
+            title="Close"
+            className="rounded-full bg-[var(--color-danger)] p-2 text-white shadow-md transition-transform duration-150 hover:scale-110 hover:brightness-110 active:scale-95"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
+          <img
+            src={convertFileSrc(path)}
+            alt={label}
+            draggable={false}
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={endDrag}
+            onMouseLeave={endDrag}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              toggleZoom();
+            }}
+            style={{
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              cursor: zoom > ZOOM_MIN ? (dragRef.current ? "grabbing" : "grab") : "zoom-in",
+            }}
+            className="block max-h-[92vh] max-w-[92vw] select-none rounded-lg object-contain shadow-2xl transition-transform duration-150 ease-out"
+          />
+        </div>
+
+        <span className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-3 py-1 text-xs text-white/70 backdrop-blur-sm">
+          Scroll or use the buttons to zoom · drag to pan · double-click to reset
+        </span>
+      </DialogContent>
+    </Dialog>
   );
 }

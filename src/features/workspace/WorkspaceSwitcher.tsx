@@ -37,7 +37,7 @@ export function WorkspaceSwitcher({ collapsed }: { collapsed: boolean }) {
         <DropdownMenuTrigger asChild>
           <button
             className={cn(
-              "flex w-full items-center justify-between rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-2 py-1.5 text-sm text-[var(--color-text)]",
+              "flex w-full items-center justify-between rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-2.5 py-2 text-sm font-medium text-[var(--color-text)] transition-colors duration-100 hover:border-[var(--color-primary)]/40",
               collapsed && "justify-center px-0",
             )}
           >

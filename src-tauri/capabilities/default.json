@@ -18,6 +18,17 @@
     "fs:allow-exists",
     "fs:allow-copy-file",
     "fs:scope-appdata-recursive",
+    "fs:allow-appdata-read-recursive",
+    "fs:allow-appdata-write-recursive",
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        { "path": "$APPDATA" },
+        { "path": "$APPDATA/**" },
+        { "path": "$APPDATA/screenshots" },
+        { "path": "$APPDATA/screenshots/**" }
+      ]
+    },
     "dialog:default"
   ]
 }
