@@ -114,6 +114,7 @@ export interface TradeScreenshot {
   trade_id: string;
   file_path: string;
   sort_order: number;
+  label: string | null;
 }
 
 export interface PlanningEntry {
@@ -145,6 +146,15 @@ export interface StreakThreshold {
   workspace_id: string;
   threshold: number;
   be_breaks_streak: number;
+}
+
+export interface CustomCombination {
+  id: string;
+  workspace_id: string;
+  name: string;
+  filters: string; // JSON-serialized CombinationFilter[]: {variableId, include, valueIds}[]
+  display_settings: string | null; // JSON-serialized {showWinRate, showBeRate, showTotal}
+  created_at: string;
 }
 
 export interface CustomColors {

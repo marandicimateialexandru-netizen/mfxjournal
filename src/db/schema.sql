@@ -82,7 +82,8 @@ CREATE TABLE IF NOT EXISTS trade_screenshots (
   id TEXT PRIMARY KEY,
   trade_id TEXT NOT NULL REFERENCES trades(id) ON DELETE CASCADE,
   file_path TEXT NOT NULL,
-  sort_order INTEGER NOT NULL DEFAULT 0
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  label TEXT
 );
 
 CREATE TABLE IF NOT EXISTS planning_entries (
@@ -163,7 +164,8 @@ CREATE TABLE IF NOT EXISTS custom_combinations (
   id TEXT PRIMARY KEY,
   workspace_id TEXT NOT NULL REFERENCES workspaces(id),
   name TEXT NOT NULL,
-  filters TEXT NOT NULL, -- JSON: [{variableId, valueId}]
+  filters TEXT NOT NULL, -- JSON: [{variableId, include, valueIds}]
+  display_settings TEXT, -- JSON: {showWinRate, showBeRate, showTotal}
   created_at TEXT NOT NULL
 );
 

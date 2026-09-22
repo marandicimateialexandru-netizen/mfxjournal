@@ -22,6 +22,8 @@ const COLUMN_MIGRATIONS: { table: string; column: string; ddl: string }[] = [
   { table: "settings", column: "streak_analysis_enabled", ddl: "ALTER TABLE settings ADD COLUMN streak_analysis_enabled INTEGER NOT NULL DEFAULT 0" },
   { table: "settings", column: "streak_be_breaks_streak", ddl: "ALTER TABLE settings ADD COLUMN streak_be_breaks_streak INTEGER NOT NULL DEFAULT 1" },
   { table: "settings", column: "variables_card_order", ddl: "ALTER TABLE settings ADD COLUMN variables_card_order TEXT" },
+  { table: "custom_combinations", column: "display_settings", ddl: "ALTER TABLE custom_combinations ADD COLUMN display_settings TEXT" },
+  { table: "trade_screenshots", column: "label", ddl: "ALTER TABLE trade_screenshots ADD COLUMN label TEXT" },
 ];
 
 async function migrateColumns(db: Database): Promise<void> {

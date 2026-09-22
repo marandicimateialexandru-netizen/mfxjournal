@@ -1,9 +1,9 @@
-import type { Trade, CustomResult } from "@/db/types";
+import type { Trade, CustomResult, Market, StreakThreshold } from "@/db/types";
 import type { VariableBucketStats } from "./types";
 import { resolveOutcomeCategory } from "./computeStats";
 
-const DAY_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const MONTH_LABELS = [
+export const DAY_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+export const MONTH_LABELS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
@@ -118,4 +118,76 @@ export function numberVariableSeries(trades: Trade[], variableId: string): Numbe
       value: t.variableValues![variableId].numberValue!,
       resultR: t.result_r,
     }));
+}
+
+/** Buckets trades by `trade.market`, one bucket per configured Market (matched by symbol — trades have no market FK). */
+export function marketBuckets(trades: Trade[], markets: Market[], customResults?: CustomResult[]): VariableBucketStats[] {
+  return markets.map((m) => {
+    const bucketTrades = trades.filter((t) => t.market === m.symbol);
+    return bucketFromTrades(m.symbol, m.symbol, bucketTrades, customResults);
+  });
+}
+
+export interface StreakBucketOptions {
+  thresholds: StreakThreshold[];
+  beBreaksStreak: boolean;
+}
+
+/**
+ * Buckets trades by their streak context immediately BEFORE the trade: no prior streak, coming off a
+ * break-even trade, or coming off a win/loss streak at least as long as a configured threshold.
+ * Buckets are independent (a trade after a 5-win streak also counts toward "After 3+ Win Streak").
+ */
+export function streakBuckets(
+  trades: Trade[],
+  options: StreakBucketOptions,
+  customResults?: CustomResult[],
+): VariableBucketStats[] {
+  const sorted = [...trades].sort((a, b) => new Date(a.entry_time).getTime() - new Date(b.entry_time).getTime());
+  const categories = sorted.map((t) => resolveOutcomeCategory(t.outcome, customResults));
+
+  const priorWinRun: number[] = [];
+  const priorLossRun: number[] = [];
+  const priorWasBe: boolean[] = [];
+  let winRun = 0;
+  let lossRun = 0;
+  for (let i = 0; i < sorted.length; i++) {
+    priorWinRun.push(winRun);
+    priorLossRun.push(lossRun);
+    priorWasBe.push(i > 0 && categories[i - 1] === "be");
+
+    const category = categories[i];
+    if (category === "win") {
+      winRun += 1;
+      lossRun = 0;
+    } else if (category === "loss") {
+      lossRun += 1;
+      winRun = 0;
+    } else if (options.beBreaksStreak) {
+      winRun = 0;
+      lossRun = 0;
+    }
+  }
+
+  const thresholds = [...options.thresholds].sort((a, b) => a.threshold - b.threshold);
+  const minThreshold = thresholds.length > 0 ? thresholds[0].threshold : Infinity;
+
+  const noPriorStreak = sorted.filter(
+    (_, i) => !priorWasBe[i] && priorWinRun[i] < minThreshold && priorLossRun[i] < minThreshold,
+  );
+  const afterBe = sorted.filter((_, i) => priorWasBe[i]);
+
+  const buckets: VariableBucketStats[] = [
+    bucketFromTrades("no_streak", "No Prior Streak", noPriorStreak, customResults),
+    bucketFromTrades("after_be", "After BE", afterBe, customResults),
+  ];
+
+  for (const th of thresholds) {
+    const afterWin = sorted.filter((_, i) => priorWinRun[i] >= th.threshold);
+    const afterLoss = sorted.filter((_, i) => priorLossRun[i] >= th.threshold);
+    buckets.push(bucketFromTrades(`after_win_${th.threshold}`, `After ${th.threshold}+ Win Streak`, afterWin, customResults));
+    buckets.push(bucketFromTrades(`after_loss_${th.threshold}`, `After ${th.threshold}+ Loss Streak`, afterLoss, customResults));
+  }
+
+  return buckets;
 }

@@ -37,9 +37,10 @@ import { ArcGauge } from "@/components/shared/ArcGauge";
 import { IconBadge, toneForKey } from "@/components/shared/IconBadge";
 import { OutcomeDonut } from "@/components/shared/OutcomeDonut";
 import { AppScoreRadar } from "@/components/shared/AppScoreRadar";
-import { WinRateBar } from "@/components/shared/WinRateBar";
 import { EquityCurveChart } from "@/components/shared/EquityCurveChart";
 import { TradeCalendar } from "@/features/stats/TradeCalendar";
+import { VariablesSection } from "@/features/dashboard/VariablesSection";
+import { CustomCombinationsSection } from "@/features/dashboard/CustomCombinationsSection";
 import { formatR, formatPct } from "@/lib/format";
 import { chartTooltipProps } from "@/lib/chartTheme";
 import { useStats } from "@/features/stats/useStats";
@@ -61,8 +62,6 @@ export default function DashboardPage() {
   const calcMode = settings?.calc_mode ?? "r";
   const dateRange = useUiStore((s) => s.dateRange);
   const setDateRange = useUiStore((s) => s.setDateRange);
-  const hideEmpty = useUiStore((s) => s.hideEmpty);
-  const toggleHideEmpty = useUiStore((s) => s.toggleHideEmpty);
   const beInWinRate = useUiStore((s) => s.beInWinRate);
   const toggleBeInWinRate = useUiStore((s) => s.toggleBeInWinRate);
   const hideBeRateColor = useUiStore((s) => s.hideBeRateColor);
@@ -110,7 +109,6 @@ export default function DashboardPage() {
     return [...map.entries()].map(([month, r]) => ({ month, r }));
   }, [stats.filteredTrades]);
 
-  const textVariables = variables.filter((v) => v.type === "text");
   const numberVariables = variables.filter((v) => v.type === "number");
 
   const filteredTradesForSearch = search.trim()
@@ -149,9 +147,6 @@ export default function DashboardPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuCheckboxItem checked={hideEmpty} onCheckedChange={toggleHideEmpty}>
-              Hide empty
-            </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem checked={beInWinRate} onCheckedChange={toggleBeInWinRate}>
               BE in Win Rate
             </DropdownMenuCheckboxItem>
@@ -351,37 +346,9 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {textVariables.length > 0 && (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {textVariables.map((v) => {
-            const buckets = (stats.byVariable[v.id] ?? []).filter((b) => !hideEmpty || b.tradeCount > 0);
-            if (buckets.length === 0) return null;
-            return (
-              <Card key={v.id}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <IconBadge emoji={v.icon ?? "🏷️"} tone={toneForKey(v.id)} size={26} />
-                    {v.label}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {buckets.map((b) => (
-                    <div key={b.valueId} className="space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span>{b.label}</span>
-                        <span className="tabular-nums text-[var(--color-text-muted)]">
-                          {b.tradeCount} • {formatPct(b.winRatePct)}
-                        </span>
-                      </div>
-                      <WinRateBar winPct={b.winRatePct} bePct={hideBeRateColor ? 0 : b.beRatePct} />
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+      <VariablesSection />
+
+      <CustomCombinationsSection />
 
       {numberVariables.length > 0 && (
         <div>

@@ -6,8 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useSettings, useUpdateSettings } from "@/features/settings/useSettings";
-import { useTrades } from "@/features/trades/useTrades";
+import { useTrades, useTradeMutations } from "@/features/trades/useTrades";
 import { useVariables } from "@/features/variables/useVariables";
 import { useWorkspaceStore } from "@/store/workspaceStore";
 import { THEME_PRESETS } from "@/features/theming/presets";
@@ -43,16 +51,19 @@ function tradesToCsv(trades: ReturnType<typeof useTrades>["data"], variables: Re
 
 export default function SettingsPage() {
   const workspaceId = useWorkspaceStore((s) => s.workspaceId);
+  const workspaceName = useWorkspaceStore((s) => s.workspaceName);
   const { data: settings } = useSettings();
   const updateSettings = useUpdateSettings();
   const { data: trades } = useTrades();
   const { data: variables } = useVariables();
+  const { deleteAllTrades } = useTradeMutations();
   const queryClient = useQueryClient();
 
   const [apiKeyDraft, setApiKeyDraft] = useState("");
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [testing, setTesting] = useState(false);
   const [seedCount, setSeedCount] = useState<number | null>(null);
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
   const [customColors, setCustomColors] = useState<CustomColors | null>(
     settings?.custom_colors ? JSON.parse(settings.custom_colors) : null,
   );
@@ -309,6 +320,23 @@ export default function SettingsPage() {
               </Button>
             )}
           </div>
+
+          <div className="space-y-1.5 border-t border-[var(--color-border)] pt-3">
+            <Label className="text-[var(--color-danger)]">Danger Zone</Label>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={!trades || trades.length === 0}
+                onClick={() => setDeleteAllOpen(true)}
+              >
+                <Trash2 className="h-4 w-4" /> Delete All Trades
+              </Button>
+              <span className="text-xs text-[var(--color-text-muted)]">
+                Permanently removes every trade ({trades?.length ?? 0}) from "{workspaceName}".
+              </span>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -321,6 +349,33 @@ export default function SettingsPage() {
           <p>Know your stake, reduce the mistake, increase your winrate.</p>
         </CardContent>
       </Card>
+
+      <Dialog open={deleteAllOpen} onOpenChange={setDeleteAllOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete All Trades?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete all {trades?.length ?? 0} trade{trades?.length === 1 ? "" : "s"} in this
+              workspace, along with their tagged variables and screenshots. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteAllOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteAllTrades.isPending}
+              onClick={async () => {
+                await deleteAllTrades.mutateAsync();
+                setDeleteAllOpen(false);
+              }}
+            >
+              Delete All Trades
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

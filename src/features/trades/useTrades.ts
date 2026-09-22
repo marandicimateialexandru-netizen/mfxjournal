@@ -45,5 +45,10 @@ export function useTradeMutations() {
     onSuccess: invalidate,
   });
 
-  return { createTrade, updateTrade, deleteTrade, deleteTrades };
+  const deleteAllTrades = useMutation({
+    mutationFn: () => api.deleteAllTrades(workspaceId!),
+    onSuccess: invalidate,
+  });
+
+  return { createTrade, updateTrade, deleteTrade, deleteTrades, deleteAllTrades };
 }

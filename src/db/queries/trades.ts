@@ -14,7 +14,7 @@ export interface TradeInput {
   notes?: string | null;
   is_seed?: boolean;
   variableValues?: Record<string, { valueId?: string; numberValue?: number }>;
-  screenshots?: string[]; // file paths, in order
+  screenshots?: { path: string; label: string | null }[];
 }
 
 async function hydrate(workspaceId: string, trades: Trade[]): Promise<Trade[]> {
@@ -120,6 +120,18 @@ export async function deleteTrades(ids: string[]): Promise<void> {
   for (const id of ids) await deleteTrade(id);
 }
 
+/** Deletes every trade in a workspace, explicitly cascading to child rows (FK cascade isn't enabled on this connection). */
+export async function deleteAllTrades(workspaceId: string): Promise<void> {
+  const trades = await select<{ id: string }>("SELECT id FROM trades WHERE workspace_id = ?", [workspaceId]);
+  const ids = trades.map((t) => t.id);
+  if (ids.length === 0) return;
+  const placeholders = ids.map(() => "?").join(",");
+  await execute(`DELETE FROM trade_screenshots WHERE trade_id IN (${placeholders})`, ids);
+  await execute(`DELETE FROM trade_variable_values WHERE trade_id IN (${placeholders})`, ids);
+  await execute(`DELETE FROM planning_entry_trades WHERE trade_id IN (${placeholders})`, ids);
+  await execute("DELETE FROM trades WHERE workspace_id = ?", [workspaceId]);
+}
+
 async function writeVariableValues(
   tradeId: string,
   variableValues?: Record<string, { valueId?: string; numberValue?: number }>,
@@ -134,12 +146,12 @@ async function writeVariableValues(
   }
 }
 
-async function writeScreenshots(tradeId: string, paths?: string[]): Promise<void> {
-  if (!paths) return;
-  for (let i = 0; i < paths.length; i++) {
+async function writeScreenshots(tradeId: string, shots?: { path: string; label: string | null }[]): Promise<void> {
+  if (!shots) return;
+  for (let i = 0; i < shots.length; i++) {
     await execute(
-      "INSERT INTO trade_screenshots (id, trade_id, file_path, sort_order) VALUES (?, ?, ?, ?)",
-      [newId(), tradeId, paths[i], i],
+      "INSERT INTO trade_screenshots (id, trade_id, file_path, sort_order, label) VALUES (?, ?, ?, ?, ?)",
+      [newId(), tradeId, shots[i].path, i, shots[i].label],
     );
   }
 }

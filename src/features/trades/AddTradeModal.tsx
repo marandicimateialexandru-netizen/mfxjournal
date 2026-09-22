@@ -2,7 +2,22 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Mic, Info, Image as ImageIcon, X, Trash2, Loader2 } from "lucide-react";
+import {
+  Mic,
+  Info,
+  X,
+  Trash2,
+  Loader2,
+  Check,
+  CalendarClock,
+  Tags,
+  StickyNote,
+  Camera,
+  LogIn,
+  Layers,
+  CandlestickChart,
+  Sparkles,
+} from "lucide-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import {
   Dialog,
@@ -17,6 +32,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { IconBadge } from "@/components/shared/IconBadge";
+import { getTradingIcon, LiquidityIcon } from "@/components/shared/tradingIcons";
+import { cn } from "@/lib/utils";
 import { useUiStore } from "@/store/uiStore";
 import { useVariables } from "@/features/variables/useVariables";
 import { useCustomResults } from "@/features/variables/useAuxLists";
@@ -47,6 +65,21 @@ function toDatetimeLocal(iso?: string | null): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function SectionHeader({ icon: Icon, children }: { icon: React.ElementType; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+      <Icon className="h-3.5 w-3.5" />
+      {children}
+    </div>
+  );
+}
+
+const OUTCOME_STYLES: Record<"win" | "loss" | "be", { active: string; ring: string }> = {
+  win: { active: "border-[var(--color-success)] bg-[var(--color-success)]/15 text-[var(--color-success)]", ring: "ring-[var(--color-success)]/40" },
+  loss: { active: "border-[var(--color-danger)] bg-[var(--color-danger)]/15 text-[var(--color-danger)]", ring: "ring-[var(--color-danger)]/40" },
+  be: { active: "border-[var(--color-warning)] bg-[var(--color-warning)]/15 text-[var(--color-warning)]", ring: "ring-[var(--color-warning)]/40" },
+};
+
 export function AddTradeModal() {
   const open = useUiStore((s) => s.addTradeModalOpen);
   const editingTradeId = useUiStore((s) => s.editingTradeId);
@@ -61,7 +94,10 @@ export function AddTradeModal() {
   const { createTrade, updateTrade, deleteTrade } = useTradeMutations();
 
   const [variableValues, setVariableValues] = useState<Record<string, { valueId?: string; numberValue?: number }>>({});
-  const [screenshots, setScreenshots] = useState<string[]>([]);
+  const [entryScreenshot, setEntryScreenshot] = useState<string | null>(null);
+  const [liquidityScreenshot, setLiquidityScreenshot] = useState<string | null>(null);
+  const [entryBusy, setEntryBusy] = useState(false);
+  const [liquidityBusy, setLiquidityBusy] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState<"idle" | "listening" | "processing">("idle");
   const [voiceError, setVoiceError] = useState<string | null>(null);
 
@@ -85,6 +121,7 @@ export function AddTradeModal() {
   });
 
   const hasEndDate = watch("hasEndDate");
+  const resultR = watch("result_r");
 
   useEffect(() => {
     if (open && existingTrade) {
@@ -100,7 +137,8 @@ export function AddTradeModal() {
         notes: existingTrade.notes ?? "",
       });
       setVariableValues(existingTrade.variableValues ?? {});
-      setScreenshots((existingTrade.screenshots ?? []).map((s) => s.file_path));
+      setEntryScreenshot(existingTrade.screenshots?.find((s) => s.label === "Entry")?.file_path ?? null);
+      setLiquidityScreenshot(existingTrade.screenshots?.find((s) => s.label === "Liquidity")?.file_path ?? null);
     } else if (open && !existingTrade && draftTrade) {
       reset({
         entry_time: toDatetimeLocal((draftTrade.entry_time as string) ?? new Date().toISOString()),
@@ -113,7 +151,8 @@ export function AddTradeModal() {
         notes: (draftTrade.notes as string) ?? "",
       });
       setVariableValues((draftTrade.variableValues as Record<string, { valueId?: string; numberValue?: number }>) ?? {});
-      setScreenshots([]);
+      setEntryScreenshot(null);
+      setLiquidityScreenshot(null);
     } else if (open && !existingTrade && !draftTrade) {
       reset({
         entry_time: toDatetimeLocal(new Date().toISOString()),
@@ -126,21 +165,27 @@ export function AddTradeModal() {
         notes: "",
       });
       setVariableValues({});
-      setScreenshots([]);
+      setEntryScreenshot(null);
+      setLiquidityScreenshot(null);
     }
   }, [open, existingTrade, draftTrade, reset]);
 
   const outcomeOptions = useMemo(
     () => [
-      { id: "win", label: "Win" },
-      { id: "loss", label: "Loss" },
-      { id: "be", label: "Break Even" },
-      ...customResults.map((c) => ({ id: c.id, label: c.label })),
+      { id: "win", label: "Win", mapsTo: "win" as const, icon: null as string | null },
+      { id: "loss", label: "Loss", mapsTo: "loss" as const, icon: null as string | null },
+      { id: "be", label: "Break Even", mapsTo: "be" as const, icon: null as string | null },
+      ...customResults.map((c) => ({ id: c.id, label: c.label, mapsTo: c.maps_to, icon: c.icon })),
     ],
     [customResults],
   );
 
   async function onSubmit(values: FormValues) {
+    const screenshots = [
+      entryScreenshot ? { path: entryScreenshot, label: "Entry" } : null,
+      liquidityScreenshot ? { path: liquidityScreenshot, label: "Liquidity" } : null,
+    ].filter((s): s is { path: string; label: string } => s !== null);
+
     const input = {
       entry_time: new Date(values.entry_time).toISOString(),
       end_time: values.hasEndDate && values.end_time ? new Date(values.end_time).toISOString() : null,
@@ -161,24 +206,23 @@ export function AddTradeModal() {
     close();
   }
 
-  const [screenshotBusy, setScreenshotBusy] = useState(false);
-
-  async function handleAddScreenshot() {
+  async function handleUploadSlot(slot: "Entry" | "Liquidity") {
+    const setBusy = slot === "Entry" ? setEntryBusy : setLiquidityBusy;
+    const setPath = slot === "Entry" ? setEntryScreenshot : setLiquidityScreenshot;
     try {
       const { open: openDialog } = await import("@tauri-apps/plugin-dialog");
       const selected = await openDialog({
-        multiple: true,
+        multiple: false,
         filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "gif"] }],
       });
       if (!selected) return;
-      const paths = Array.isArray(selected) ? selected : [selected];
-      setScreenshotBusy(true);
-      const copied = await copyScreenshotsToAppData(paths);
-      setScreenshots((prev) => [...prev, ...copied]);
+      setBusy(true);
+      const [copied] = await copyScreenshotsToAppData([selected as string]);
+      setPath(copied);
     } catch (err) {
       console.warn("Screenshot picker unavailable in this environment", err);
     } finally {
-      setScreenshotBusy(false);
+      setBusy(false);
     }
   }
 
@@ -229,16 +273,26 @@ export function AddTradeModal() {
     recognition.start();
   }
 
+  const resultTone = resultR ? (Number(resultR) > 0 ? "positive" : Number(resultR) < 0 ? "negative" : "neutral") : "neutral";
+
   return (
     <Dialog open={open} onOpenChange={(v) => !v && close()}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{existingTrade ? "Edit Trade" : "New Trade"}</DialogTitle>
+          <div className="flex items-center gap-2.5">
+            <IconBadge icon={CandlestickChart} tone="violet" size={34} className="shrink-0" />
+            <div className="min-w-0">
+              <DialogTitle>{existingTrade ? "Edit Trade" : "New Trade"}</DialogTitle>
+              <p className="text-xs text-[var(--color-text-muted)]">
+                {existingTrade ? "Update the details of this trade" : "Log a trade and tag it against your variables"}
+              </p>
+            </div>
+          </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           {voiceInputEnabled && (
-            <div className="flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-background)] p-2">
+            <div className="flex items-center gap-2 rounded-lg border border-[var(--color-primary)]/30 bg-gradient-to-r from-[var(--color-primary)]/10 to-transparent p-2.5">
               <Button
                 type="button"
                 variant="secondary"
@@ -246,12 +300,12 @@ export function AddTradeModal() {
                 onClick={handleVoiceFill}
                 disabled={voiceStatus !== "idle" || !speechSupported}
               >
-                <Mic className="h-4 w-4" />
+                {voiceStatus === "idle" ? <Sparkles className="h-4 w-4" /> : <Mic className="h-4 w-4 animate-pulse" />}
                 {voiceStatus === "listening" ? "Listening…" : voiceStatus === "processing" ? "Parsing…" : "Voice Fill"}
               </Button>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Info className="h-4 w-4 text-[var(--color-text-muted)] cursor-help" />
+                  <Info className="h-4 w-4 shrink-0 text-[var(--color-text-muted)] cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent>
                   Say things like "Win, 2R, EURUSD, setup OTE". You can also say "change setup to BOS"
@@ -265,16 +319,8 @@ export function AddTradeModal() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Entry Date & Time</Label>
-              <Input type="datetime-local" {...register("entry_time")} />
-              {errors.entry_time && <p className="text-xs text-[var(--color-danger)]">{errors.entry_time.message}</p>}
-              <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
-                <input type="checkbox" {...register("hasEndDate")} /> Add end date
-              </label>
-              {hasEndDate && <Input type="datetime-local" {...register("end_time")} />}
-            </div>
+          <div className="space-y-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)]/50 p-3.5">
+            <SectionHeader icon={CalendarClock}>Trade Details</SectionHeader>
 
             <div className="space-y-1.5">
               <Label>Outcome</Label>
@@ -282,145 +328,177 @@ export function AddTradeModal() {
                 control={control}
                 name="outcome"
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {outcomeOptions.map((o) => (
-                        <SelectItem key={o.id} value={o.id}>
+                  <div className="flex flex-wrap gap-1.5">
+                    {outcomeOptions.map((o) => {
+                      const active = field.value === o.id;
+                      const style = OUTCOME_STYLES[o.mapsTo];
+                      return (
+                        <button
+                          key={o.id}
+                          type="button"
+                          onClick={() => field.onChange(o.id)}
+                          className={cn(
+                            "flex items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
+                            active
+                              ? cn(style.active, "ring-2", style.ring)
+                              : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]",
+                          )}
+                        >
+                          {active && <Check className="h-3.5 w-3.5" />}
+                          {o.icon && <span>{o.icon}</span>}
                           {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label>Risk (R)</Label>
-              <Input type="number" step="0.1" {...register("risk_r")} />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Result (R)</Label>
-              <Input type="number" step="0.01" {...register("result_r")} />
-              {errors.result_r && <p className="text-xs text-[var(--color-danger)]">{errors.result_r.message}</p>}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Market</Label>
-              <Input placeholder="EURUSD" {...register("market")} />
-            </div>
-
-            {strategies.length > 0 && (
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Strategy</Label>
-                <Controller
-                  control={control}
-                  name="strategy_id"
-                  render={({ field }) => (
-                    <Select value={field.value ?? ""} onValueChange={field.onChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="None" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {strategies.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.icon} {s.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                <Label>Entry Date & Time</Label>
+                <Input type="datetime-local" {...register("entry_time")} />
+                {errors.entry_time && <p className="text-xs text-[var(--color-danger)]">{errors.entry_time.message}</p>}
+                <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
+                  <input type="checkbox" {...register("hasEndDate")} /> Add end date
+                </label>
+                {hasEndDate && <Input type="datetime-local" {...register("end_time")} />}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Market</Label>
+                <Input placeholder="EURUSD" {...register("market")} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Risk (R)</Label>
+                <Input type="number" step="0.1" {...register("risk_r")} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Result (R)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  {...register("result_r")}
+                  className={cn(
+                    "font-semibold tabular-nums",
+                    resultTone === "positive" && "text-[var(--color-success)]",
+                    resultTone === "negative" && "text-[var(--color-danger)]",
                   )}
                 />
+                {errors.result_r && <p className="text-xs text-[var(--color-danger)]">{errors.result_r.message}</p>}
               </div>
-            )}
-          </div>
 
-          {variables.length > 0 && (
-            <div>
-              <Label className="mb-2 block">Variables</Label>
-              <div className="grid grid-cols-2 gap-3">
-                {variables.map((v) => (
-                  <div key={v.id} className="space-y-1.5">
-                    <Label className="text-xs text-[var(--color-text-muted)]">
-                      {v.icon} {v.label}
-                    </Label>
-                    {v.type === "text" ? (
-                      <Select
-                        value={variableValues[v.id]?.valueId ?? ""}
-                        onValueChange={(val) =>
-                          setVariableValues((prev) => ({ ...prev, [v.id]: { valueId: val } }))
-                        }
-                      >
+              {strategies.length > 0 && (
+                <div className="col-span-2 space-y-1.5">
+                  <Label className="flex items-center gap-1">
+                    <Layers className="h-3 w-3" /> Strategy
+                  </Label>
+                  <Controller
+                    control={control}
+                    name="strategy_id"
+                    render={({ field }) => (
+                      <Select value={field.value ?? ""} onValueChange={field.onChange}>
                         <SelectTrigger>
-                          <SelectValue placeholder="—" />
+                          <SelectValue placeholder="None" />
                         </SelectTrigger>
                         <SelectContent>
-                          {v.values.map((val) => (
-                            <SelectItem key={val.id} value={val.id}>
-                              {val.icon} {val.label}
+                          {strategies.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.icon} {s.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                    ) : (
-                      <Input
-                        type="number"
-                        step="any"
-                        value={variableValues[v.id]?.numberValue ?? ""}
-                        onChange={(e) =>
-                          setVariableValues((prev) => ({
-                            ...prev,
-                            [v.id]: { numberValue: e.target.value === "" ? undefined : Number(e.target.value) },
-                          }))
-                        }
-                      />
                     )}
-                  </div>
-                ))}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {variables.length > 0 && (
+            <div className="space-y-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)]/50 p-3.5">
+              <SectionHeader icon={Tags}>Variables</SectionHeader>
+              <div className="grid grid-cols-2 gap-3">
+                {variables.map((v) => {
+                  const match = getTradingIcon(v.label) ?? getTradingIcon(v.key);
+                  return (
+                    <div key={v.id} className="space-y-1.5">
+                      <Label className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
+                        {match ? (
+                          <IconBadge icon={match.icon} tone={match.tone} size={18} />
+                        ) : v.icon ? (
+                          <span>{v.icon}</span>
+                        ) : null}
+                        {v.label}
+                      </Label>
+                      {v.type === "text" ? (
+                        <Select
+                          value={variableValues[v.id]?.valueId ?? ""}
+                          onValueChange={(val) =>
+                            setVariableValues((prev) => ({ ...prev, [v.id]: { valueId: val } }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="—" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {v.values.map((val) => (
+                              <SelectItem key={val.id} value={val.id}>
+                                {val.icon} {val.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input
+                          type="number"
+                          step="any"
+                          value={variableValues[v.id]?.numberValue ?? ""}
+                          onChange={(e) =>
+                            setVariableValues((prev) => ({
+                              ...prev,
+                              [v.id]: { numberValue: e.target.value === "" ? undefined : Number(e.target.value) },
+                            }))
+                          }
+                        />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
 
           <div className="space-y-1.5">
-            <Label>Notes</Label>
+            <SectionHeader icon={StickyNote}>Notes</SectionHeader>
             <Textarea rows={3} placeholder="What happened? What did you learn?" {...register("notes")} />
           </div>
 
           <div className="space-y-1.5">
-            <Label>Screenshots</Label>
-            <div className="flex flex-wrap gap-2">
-              {screenshots.map((path, i) => (
-                <div
-                  key={i}
-                  title={path}
-                  className="relative h-16 w-16 overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-background)]"
-                >
-                  <img src={convertFileSrc(path)} alt="Screenshot" className="h-full w-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => setScreenshots((prev) => prev.filter((_, idx) => idx !== i))}
-                    className="absolute -right-1.5 -top-1.5 rounded-full bg-[var(--color-danger)] p-0.5"
-                  >
-                    <X className="h-3 w-3 text-white" />
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={handleAddScreenshot}
-                disabled={screenshotBusy}
-                className="flex h-16 w-16 items-center justify-center rounded-md border border-dashed border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] disabled:opacity-50"
-              >
-                {screenshotBusy ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <ImageIcon className="h-5 w-5" />
-                )}
-              </button>
+            <SectionHeader icon={Camera}>Screenshots</SectionHeader>
+            <div className="grid grid-cols-2 gap-3">
+              <ScreenshotSlot
+                label="Entry"
+                icon={LogIn}
+                tone="teal"
+                path={entryScreenshot}
+                busy={entryBusy}
+                onUpload={() => handleUploadSlot("Entry")}
+                onClear={() => setEntryScreenshot(null)}
+              />
+              <ScreenshotSlot
+                label="Liquidity"
+                icon={LiquidityIcon}
+                tone="blue"
+                path={liquidityScreenshot}
+                busy={liquidityBusy}
+                onUpload={() => handleUploadSlot("Liquidity")}
+                onClear={() => setLiquidityScreenshot(null)}
+              />
             </div>
           </div>
 
@@ -442,11 +520,69 @@ export function AddTradeModal() {
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              Save Trade
+              <Check className="h-4 w-4" /> Save Trade
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ScreenshotSlot({
+  label,
+  icon: Icon,
+  tone,
+  path,
+  busy,
+  onUpload,
+  onClear,
+}: {
+  label: string;
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties; strokeWidth?: number }>;
+  tone: Parameters<typeof IconBadge>[0]["tone"];
+  path: string | null;
+  busy: boolean;
+  onUpload: () => void;
+  onClear: () => void;
+}) {
+  if (path) {
+    return (
+      <div className="group relative h-40 overflow-hidden rounded-lg border border-[var(--color-border)] shadow-sm">
+        <img src={convertFileSrc(path)} alt={label} className="h-full w-full object-cover" />
+        <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm">
+          <Icon className="h-3 w-3" /> {label}
+        </span>
+        <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/0 opacity-0 transition-all group-hover:bg-black/40 group-hover:opacity-100">
+          <Button type="button" size="sm" variant="secondary" onClick={onUpload}>
+            Replace
+          </Button>
+          <button
+            type="button"
+            onClick={onClear}
+            className="rounded-full bg-[var(--color-danger)] p-1.5"
+          >
+            <X className="h-3.5 w-3.5 text-white" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onUpload}
+      disabled={busy}
+      className="flex h-40 flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[var(--color-border)] text-[var(--color-text-muted)] transition-colors hover:border-[var(--color-primary)]/50 hover:text-[var(--color-text)] disabled:opacity-50"
+    >
+      {busy ? (
+        <Loader2 className="h-6 w-6 animate-spin" />
+      ) : (
+        <IconBadge icon={Icon} tone={tone} size={36} />
+      )}
+      <span className="text-sm font-medium">{label}</span>
+      <span className="text-[11px]">Click to upload</span>
+    </button>
   );
 }

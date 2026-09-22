@@ -112,13 +112,18 @@ export function TradeDetailModal({
                   key={s.id}
                   type="button"
                   onClick={() => setLightbox(convertFileSrc(s.file_path))}
-                  className="block h-[380px] w-full overflow-hidden rounded-lg border border-[var(--color-border)] shadow-sm transition-opacity hover:opacity-90"
+                  className="relative block h-[380px] w-full overflow-hidden rounded-lg border border-[var(--color-border)] shadow-sm transition-opacity hover:opacity-90"
                 >
                   <img
                     src={convertFileSrc(s.file_path)}
-                    alt="Trade screenshot"
+                    alt={s.label ?? "Trade screenshot"}
                     className="h-full w-full object-cover"
                   />
+                  {s.label && (
+                    <span className="absolute left-2 top-2 rounded-full bg-black/60 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm">
+                      {s.label}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>

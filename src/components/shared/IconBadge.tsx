@@ -1,7 +1,14 @@
-import type { LucideIcon } from "lucide-react";
+import type { ComponentType, CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 
 export type IconTone = "violet" | "green" | "red" | "amber" | "teal" | "blue" | "rose" | "slate";
+
+/** Anything renderable as a colored glyph inside an IconBadge — a lucide icon or a hand-drawn custom SVG icon. */
+export type IconComponent = ComponentType<{
+  className?: string;
+  style?: CSSProperties;
+  strokeWidth?: number;
+}>;
 
 const GRADIENTS: Record<IconTone, string> = {
   violet: "linear-gradient(135deg, #8b5cf6, #6366f1)",
@@ -21,7 +28,7 @@ export function IconBadge({
   size = 34,
   className,
 }: {
-  icon?: LucideIcon;
+  icon?: IconComponent;
   emoji?: string;
   tone?: IconTone;
   size?: number;
