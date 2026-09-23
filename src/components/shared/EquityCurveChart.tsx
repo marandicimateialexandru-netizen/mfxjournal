@@ -5,10 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { IconBadge } from "@/components/shared/IconBadge";
 import { TrendingUp } from "lucide-react";
-import { useCountUp } from "@/lib/useCountUp";
 import type { EquityPoint } from "@/features/stats/types";
-
-const DASH_LENGTH = 4000;
 
 /** Ease-in-out, not ease-out: an ease-out curve is fast *at the start* by definition — measured,
  *  this one was already 43% visually drawn after only the first 270ms of a 2.6s animation, then
@@ -53,38 +50,66 @@ export function EquityCurveChart({
   const chartRef = useRef<HTMLDivElement>(null);
   const cursorLineRef = useRef<HTMLDivElement>(null);
   const dotRef = useRef<HTMLDivElement>(null);
-  const endDotRef = useRef<HTMLDivElement>(null);
-  // Same timing as the line draw-in below (150ms start delay, 1900ms duration) so the badge
-  // finishes ticking up right as the line finishes drawing itself in — one coordinated reveal.
-  const animatedTotalR = useCountUp(totalR, 1900, 150);
+  const totalRRef = useRef<HTMLSpanElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const tooltipDateRef = useRef<HTMLDivElement>(null);
   const tooltipCumRef = useRef<HTMLSpanElement>(null);
   const tooltipTradeWrapRef = useRef<HTMLDivElement>(null);
   const tooltipTradeRef = useRef<HTMLSpanElement>(null);
 
-  /** Drives the line draw-in + fill fade by mutating the rendered SVG elements' style directly
+  // The total-R badge used to animate via React state (useCountUp), which meant this whole
+  // component — the SVG tree included — re-rendered on every single frame for the entire 1.9s the
+  // line was drawing in, right alongside it. Writing the number straight to a ref sidesteps React's
+  // render cycle entirely, exactly like AppScoreRadar's score meter and the dashboard's stat tiles.
+  // Same timing as the line draw-in below (150ms start delay, 1900ms duration) so it finishes
+  // ticking up right as the line finishes drawing itself in — one coordinated reveal.
+  useEffect(() => {
+    const el = totalRRef.current;
+    if (!el) return;
+    let raf = 0;
+    const duration = 1900;
+    function paint(value: number) {
+      el!.textContent = `${value >= 0 ? "+" : ""}${value.toFixed(2)}R`;
+    }
+    function tick(start: number, now: number) {
+      const t = Math.min(1, (now - start) / duration);
+      paint(totalR * easeInOutCubic(t));
+      if (t < 1) raf = requestAnimationFrame((n) => tick(start, n));
+    }
+    const timeout = setTimeout(() => {
+      raf = requestAnimationFrame((start) => tick(start, start));
+    }, 150);
+    return () => {
+      clearTimeout(timeout);
+      cancelAnimationFrame(raf);
+    };
+  }, [totalR]);
+
+  /** Drives the line draw-in + fill curtain by mutating the rendered SVG elements' style directly
    *  (found via querySelector, using the class names Recharts always renders — "recharts-area-curve"
    *  for the stroke, "recharts-area-area" for the fill) instead of passing animated values through
-   *  as React props on <Area>, which never visibly reached the actual <path>. The element is
-   *  re-queried on every single frame (cheap — it's two lookups in a small subtree) rather than
-   *  cached, so if Recharts ever swaps the underlying DOM node mid-flight the very next frame just
-   *  picks up the new one and keeps going instead of animating a now-detached element. Once the
-   *  reveal finishes, a MutationObserver keeps re-applying the fully-drawn end state for as long as
-   *  this chart is mounted — the actual bug in the previous version was that a swap happening *after*
-   *  the animation had already finished (and the rAF loop had stopped) left the chart permanently
-   *  stuck on the CSS starting state (fully hidden) with nothing left running to fix it. */
+   *  as React props on <Area>, which never visibly reached the actual <path>.
+   *
+   *  The line reveal is `clip-path`, not `stroke-dasharray`/`stroke-dashoffset` (an earlier version
+   *  used dash-offset, the usual "draw a line" trick) — animating a dash pattern along a *curved*
+   *  path with a multi-stop gradient stroke turned out to have a real, persistent rendering quirk in
+   *  this environment: a jittering/flickering tip as the renderer recomputed the dash boundary and
+   *  antialiased it against shifting gradient colors every frame, no matter the line cap. A
+   *  rectangular clip-path sidesteps that entirely — the full stroke is always painted, just clipped
+   *  away outside the revealed region — which is the same technique already used for the fill's
+   *  "curtain" reveal below, proven to render cleanly with zero flicker.
+   *
+   *  Once the reveal finishes, a MutationObserver keeps re-applying the fully-drawn end state for as
+   *  long as this chart is mounted — the actual bug in an even earlier version was that a DOM swap
+   *  happening *after* the animation had already finished (and the rAF loop had stopped) left the
+   *  chart permanently stuck on the CSS starting state (fully hidden) with nothing left running to
+   *  fix it. */
   useEffect(() => {
     const container = chartRef.current;
-    const endDot = endDotRef.current;
     if (!container) return;
     let raf = 0;
     let start: number | null = null;
     let finished = false;
-    // A deliberate, full intro (not rushed) — the earlier "laggy" complaint turned out to be real
-    // frame drops caused by an SVG drop-shadow filter recomputing on every single frame while the
-    // path geometry changed underneath it (see the deferred-filter fix below), not the duration
-    // itself. With that actual cost removed, the animation can afford to take its time again.
     const duration = 1900;
     const startDelay = 150;
 
@@ -94,57 +119,35 @@ export function EquityCurveChart({
     // after the animation finishes (handled separately by the MutationObserver below). Re-querying
     // 60 times a second was pure overhead, not protection against anything that occurs mid-reveal.
     let cachedLine: SVGPathElement | null = null;
-    let cachedFill: SVGPathElement | null = null;
 
-    function getPaths(): { line: SVGPathElement | null; fill: SVGPathElement | null } {
+    function getLine(): SVGPathElement | null {
       if (!cachedLine?.isConnected) cachedLine = container!.querySelector<SVGPathElement>(".recharts-area-curve");
-      if (!cachedFill?.isConnected) cachedFill = container!.querySelector<SVGPathElement>(".recharts-area-area");
-      return { line: cachedLine, fill: cachedFill };
+      return cachedLine;
     }
 
     function applyFrame(eased: number) {
-      const { line: linePath, fill: fillPath } = getPaths();
-      if (!linePath || !fillPath) return false;
-      linePath.style.strokeDasharray = String(DASH_LENGTH);
-      linePath.style.strokeDashoffset = String(DASH_LENGTH * (1 - eased));
-      fillPath.style.opacity = String(Math.max(0, Math.min(1, (eased - 0.15) / 0.85)));
+      const linePath = getLine();
+      if (!linePath) return false;
+      linePath.style.clipPath = `inset(0 ${100 * (1 - eased)}% 0 0)`;
       return true;
     }
 
-    // The glow is an SVG drop-shadow filter, and browsers can't composite those on the GPU — every
-    // frame the filtered region has to be re-rasterized on the CPU. Applying it while the stroke is
-    // actively drawing in (geometry changing every frame) was the actual cause of the dropped
-    // frames/stutter — not the animation's duration. So it stays off the path entirely until the
-    // reveal is done, then switches on once, onto a now-static shape that never needs re-rasterizing.
-    function applyGlow() {
-      const { line: linePath } = getPaths();
-      if (linePath) linePath.style.filter = `url(#${equityStrokeId}-glow)`;
-    }
-
-    // Drops a small pulsing "live" marker on the most recent point once the draw-in has reached
-    // it — additive to the reveal above (reads the already-rendered path, doesn't touch dash
-    // offsets), so it can't desync the line/fill animation it's riding on.
-    function positionEndDot() {
-      if (!endDot) return;
-      const linePath = container!.querySelector<SVGPathElement>(".recharts-area-curve");
-      const svg = container!.querySelector(".recharts-wrapper svg");
-      if (!linePath || !svg) return;
-      const points = parsePathPoints(linePath.getAttribute("d"));
-      const last = points[points.length - 1];
-      if (!last) return;
-      const svgRect = svg.getBoundingClientRect();
-      const containerRect = container!.getBoundingClientRect();
-      const x = svgRect.left - containerRect.left + last.x;
-      const y = svgRect.top - containerRect.top + last.y;
-      endDot.style.transform = `translate(${x}px, ${y}px)`;
-      endDot.style.opacity = "1";
+    // Once the line has finished drawing itself in, the color underneath drops down over it like
+    // a curtain — a plain native CSS clip-path transition (one-shot, browser-driven), not another
+    // per-frame JS loop, so it can't add any animation cost of its own. The fill starts fully
+    // clipped away (see the static CSS below) and this just flips it to fully revealed once.
+    function revealCurtain() {
+      const fillPath = container!.querySelector<SVGPathElement>(".recharts-area-area");
+      if (!fillPath) return;
+      fillPath.style.transition = "clip-path 700ms cubic-bezier(0.22, 1, 0.36, 1)";
+      fillPath.style.clipPath = "inset(0 0 0% 0)";
     }
 
     function tick(now: number) {
       // Elements may not exist yet on the very first frames (ResponsiveContainer measures its
       // size via ResizeObserver before rendering the real chart) — don't start the clock until
       // they're actually there, or the reveal would jump straight to a partway-done state.
-      if (!getPaths().line) {
+      if (!getLine()) {
         raf = requestAnimationFrame(tick);
         return;
       }
@@ -156,8 +159,7 @@ export function EquityCurveChart({
         raf = requestAnimationFrame(tick);
       } else {
         finished = true;
-        applyGlow();
-        positionEndDot();
+        revealCurtain();
       }
     }
     raf = requestAnimationFrame(tick);
@@ -169,9 +171,8 @@ export function EquityCurveChart({
     const observer = new MutationObserver(() => {
       if (!finished) return;
       const linePath = container!.querySelector<SVGPathElement>(".recharts-area-curve");
-      if (linePath && linePath.style.strokeDashoffset !== "0") applyFrame(1);
-      applyGlow();
-      positionEndDot();
+      if (linePath && linePath.style.clipPath !== "inset(0 0% 0 0)") applyFrame(1);
+      revealCurtain();
     });
     observer.observe(container, { childList: true, subtree: true });
 
@@ -437,34 +438,39 @@ export function EquityCurveChart({
             </span>
           )}
           <span
+            ref={totalRRef}
             className={cn(
               "rounded-full px-2.5 py-1 text-sm font-extrabold tabular-nums shadow-sm",
               totalR >= 0 ? "bg-[#34d399]/15 text-[#34d399]" : "bg-[var(--color-danger)]/15 text-[var(--color-danger)]",
             )}
           >
-            {animatedTotalR >= 0 ? "+" : ""}
-            {animatedTotalR.toFixed(2)}R
+            {totalR >= 0 ? "+" : ""}0.00R
           </span>
         </div>
       </CardHeader>
       <CardContent ref={chartRef} className="equity-curve-chart relative h-64">
-        {/* No card-level pop-in here on purpose — the line drawing itself in and the fill fading in
-            behind it (driven imperatively, see the effect above) are the entrance; a simultaneous
-            whole-card scale/opacity pop was visually louder than that and read as the only motion.
-            The fade mask stays static (always on) — no toggling, no CSS keyframe. The glow filter
-            is deliberately NOT set here (see applyGlow in the effect above): switching it on only
-            after the reveal finishes is what keeps the draw-in itself smooth. The line/fill start
-            hidden via plain CSS so there's no flash of the fully-drawn state before the effect above
-            finds the elements and takes over. */}
+        {/* The reveal is a strict two-step sequence: the line draws itself in first left-to-right
+            (driven imperatively, see the effect above, via an animated clip-path — a per-frame JS
+            loop, so the fill deliberately doesn't share it, since animating two things off the same
+            loop was what previously read as a flicker); only once that finishes does the color
+            underneath drop down over it like a curtain, via `revealCurtain` — a single native CSS
+            clip-path transition, not more JS per-frame work. Both start fully hidden via plain CSS
+            clip-path so there's no flash of the finished state before the effect above takes over.
+            The fade mask (its permanent top-to-bottom "wisp" shape) is unrelated and stays static
+            throughout. */}
         <style>{`
           .equity-curve-chart .recharts-area-area {
             mask: url(#${equityStrokeId}-fillmask);
             -webkit-mask: url(#${equityStrokeId}-fillmask);
-            opacity: 0;
+            clip-path: inset(0 0 100% 0);
           }
           .equity-curve-chart .recharts-area-curve {
-            stroke-dasharray: ${DASH_LENGTH};
-            stroke-dashoffset: ${DASH_LENGTH};
+            clip-path: inset(0 100% 0 0);
+            /* SVG doesn't get the same automatic per-element GPU layering HTML/CSS does — without
+               this hint, animating this one element's clip-path can force the whole <svg> (grid
+               lines, axes, reference line, everything) to re-rasterize together every frame. This
+               promotes just the line to its own compositor layer so nothing else repaints with it. */
+            will-change: clip-path;
           }
         `}</style>
         <ResponsiveContainer width="100%" height="100%">
@@ -494,11 +500,6 @@ export function EquityCurveChart({
               <mask id={`${equityStrokeId}-fillmask`} maskUnits="objectBoundingBox" x="0" y="0" width="1" height="1">
                 <rect x="0" y="0" width="100%" height="100%" fill={`url(#${equityStrokeId}-fade)`} />
               </mask>
-              {/* Glow is applied only to the line stroke (scoped CSS above), not the fill beneath it —
-                  a shadow under the whole coated area read as a heavy, murky block. */}
-              <filter id={`${equityStrokeId}-glow`} x="-20%" y="-60%" width="140%" height="220%">
-                <feDropShadow dx="0" dy="1.5" stdDeviation="2.8" floodColor="#000000" floodOpacity="0.4" />
-              </filter>
             </defs>
             <CartesianGrid strokeDasharray="3 8" stroke="var(--color-border)" strokeOpacity={0.35} />
             <XAxis
@@ -550,25 +551,6 @@ export function EquityCurveChart({
           className="pointer-events-none absolute top-0 left-0 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 opacity-0"
           style={{ background: "var(--color-surface)", willChange: "transform" }}
         />
-        {/* "Live" marker on the most recent point — dropped in once the draw-in animation reaches
-            it (see positionEndDot above), a soft pulsing ring reads as "this is where you are now"
-            on the curve, the way live-market charts mark the current price. */}
-        <div
-          ref={endDotRef}
-          className="pointer-events-none absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2 opacity-0 transition-opacity duration-300"
-          style={{ willChange: "transform" }}
-        >
-          <span className="relative flex h-3 w-3">
-            <span
-              className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
-              style={{ background: totalR >= 0 ? "#34d399" : "#ef4444" }}
-            />
-            <span
-              className="relative inline-flex h-3 w-3 rounded-full border-2 border-[var(--color-surface)]"
-              style={{ background: totalR >= 0 ? "#34d399" : "#ef4444" }}
-            />
-          </span>
-        </div>
         <div
           ref={tooltipRef}
           className="pointer-events-none absolute top-0 left-0 z-10 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-xs opacity-0 shadow-lg"
