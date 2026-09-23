@@ -22,6 +22,7 @@ export function RadialGauge({
   showValue?: boolean;
 }) {
   const gradientId = useId();
+  const glowId = useId();
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const pct = Math.max(0, Math.min(1, value / max));
@@ -31,14 +32,19 @@ export function RadialGauge({
   return (
     <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        {gradient && (
-          <defs>
+        <defs>
+          {gradient && (
             <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor={gradient[0]} />
               <stop offset="100%" stopColor={gradient[1]} />
             </linearGradient>
-          </defs>
-        )}
+          )}
+          {gradient && (
+            <filter id={glowId} x="-60%" y="-60%" width="220%" height="220%">
+              <feDropShadow dx="0" dy="0" stdDeviation="2" floodColor={gradient[0]} floodOpacity="0.5" />
+            </filter>
+          )}
+        </defs>
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -57,12 +63,13 @@ export function RadialGauge({
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           strokeLinecap="round"
+          filter={gradient ? `url(#${glowId})` : undefined}
           style={{ transition: "stroke-dashoffset 0.4s ease" }}
         />
       </svg>
       {showValue && (
         <div className="absolute flex flex-col items-center justify-center">
-          <span className="text-sm font-semibold tabular-nums text-[var(--color-text)]">{Math.round(value)}</span>
+          <span className="text-sm font-bold tabular-nums text-[var(--color-text)]">{Math.round(value)}</span>
           {label && <span className="text-[9px] text-[var(--color-text-muted)]">{label}</span>}
         </div>
       )}

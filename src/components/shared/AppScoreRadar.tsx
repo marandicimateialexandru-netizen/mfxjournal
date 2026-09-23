@@ -41,6 +41,10 @@ export function AppScoreRadar({ breakdown }: { breakdown: AppScoreBreakdown }) {
               stroke="#10b981"
               fill={`url(#${gradientId})`}
               strokeWidth={2.5}
+              // Recharts' own entrance animation runs through its internal react-smooth engine —
+              // a third rAF+re-render loop competing with our own custom ones on mount. The card's
+              // own CSS scale/opacity pop (animate-radar-pop) is the entrance instead.
+              isAnimationActive={false}
               dot={{ r: 3.5, fill: "#10b981", stroke: "var(--color-surface)", strokeWidth: 1.5 }}
               activeDot={{ r: 6, fill: "#34d399", stroke: "var(--color-surface)", strokeWidth: 2 }}
             />

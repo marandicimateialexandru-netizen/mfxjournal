@@ -70,7 +70,7 @@ function computeMaxDrawdown(curve: EquityPoint[]): { maxDrawdownR: number; trade
   return { maxDrawdownR: maxDrawdown, tradeCount: maxDrawdownTradeCount };
 }
 
-function computeStreaks(
+export function computeStreaks(
   categories: OutcomeCategory[],
   beBreaksStreak: boolean,
 ): { maxWinStreak: number; maxLossStreak: number; currentStreak: StreakState } {

@@ -110,7 +110,7 @@ export function VariablesSection() {
       title="Variables"
       subtitle={`${dimensions.length} categor${dimensions.length === 1 ? "y" : "ies"} · every configured value, live`}
       icon={Tag}
-      tone="violet"
+      tone="blue"
     >
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {dimensions.map((d) => (

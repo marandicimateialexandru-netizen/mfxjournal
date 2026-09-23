@@ -1,8 +1,11 @@
 import { useEffect, useId, useMemo, useRef } from "react";
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid } from "recharts";
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, ReferenceLine } from "recharts";
 import { format } from "date-fns";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { IconBadge } from "@/components/shared/IconBadge";
+import { TrendingUp } from "lucide-react";
+import { useCountUp } from "@/lib/useCountUp";
 import type { EquityPoint } from "@/features/stats/types";
 
 const DASH_LENGTH = 4000;
@@ -36,11 +39,24 @@ function parsePathPoints(d: string | null): { x: number; y: number }[] {
  *  animation's per-frame work only touches this small chart, not the entire dashboard — driving a
  *  60fps loop from a top-level page component re-renders everything on the page every frame, which
  *  is what made earlier attempts at this animation drop frames and read as "just a pop". */
-export function EquityCurveChart({ equityCurve, totalR }: { equityCurve: EquityPoint[]; totalR: number }) {
+export function EquityCurveChart({
+  equityCurve,
+  totalR,
+  maxDrawdownR,
+}: {
+  equityCurve: EquityPoint[];
+  totalR: number;
+  /** Optional — shown as a small secondary badge next to the total R pill when provided. */
+  maxDrawdownR?: number;
+}) {
   const equityStrokeId = useId();
   const chartRef = useRef<HTMLDivElement>(null);
   const cursorLineRef = useRef<HTMLDivElement>(null);
   const dotRef = useRef<HTMLDivElement>(null);
+  const endDotRef = useRef<HTMLDivElement>(null);
+  // Same timing as the line draw-in below (150ms start delay, 1900ms duration) so the badge
+  // finishes ticking up right as the line finishes drawing itself in — one coordinated reveal.
+  const animatedTotalR = useCountUp(totalR, 1900, 150);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const tooltipDateRef = useRef<HTMLDivElement>(null);
   const tooltipCumRef = useRef<HTMLSpanElement>(null);
@@ -60,16 +76,34 @@ export function EquityCurveChart({ equityCurve, totalR }: { equityCurve: EquityP
    *  stuck on the CSS starting state (fully hidden) with nothing left running to fix it. */
   useEffect(() => {
     const container = chartRef.current;
+    const endDot = endDotRef.current;
     if (!container) return;
     let raf = 0;
     let start: number | null = null;
     let finished = false;
-    const duration = 2600;
-    const startDelay = 200;
+    // A deliberate, full intro (not rushed) — the earlier "laggy" complaint turned out to be real
+    // frame drops caused by an SVG drop-shadow filter recomputing on every single frame while the
+    // path geometry changed underneath it (see the deferred-filter fix below), not the duration
+    // itself. With that actual cost removed, the animation can afford to take its time again.
+    const duration = 1900;
+    const startDelay = 150;
+
+    // Queried once and reused for the life of this tick loop instead of every single frame — the
+    // original per-frame re-query was defensive against Recharts swapping the path node mid-flight,
+    // but that only actually happens on prop changes (which re-runs this whole effect anyway) or
+    // after the animation finishes (handled separately by the MutationObserver below). Re-querying
+    // 60 times a second was pure overhead, not protection against anything that occurs mid-reveal.
+    let cachedLine: SVGPathElement | null = null;
+    let cachedFill: SVGPathElement | null = null;
+
+    function getPaths(): { line: SVGPathElement | null; fill: SVGPathElement | null } {
+      if (!cachedLine?.isConnected) cachedLine = container!.querySelector<SVGPathElement>(".recharts-area-curve");
+      if (!cachedFill?.isConnected) cachedFill = container!.querySelector<SVGPathElement>(".recharts-area-area");
+      return { line: cachedLine, fill: cachedFill };
+    }
 
     function applyFrame(eased: number) {
-      const linePath = container!.querySelector<SVGPathElement>(".recharts-area-curve");
-      const fillPath = container!.querySelector<SVGPathElement>(".recharts-area-area");
+      const { line: linePath, fill: fillPath } = getPaths();
       if (!linePath || !fillPath) return false;
       linePath.style.strokeDasharray = String(DASH_LENGTH);
       linePath.style.strokeDashoffset = String(DASH_LENGTH * (1 - eased));
@@ -77,12 +111,40 @@ export function EquityCurveChart({ equityCurve, totalR }: { equityCurve: EquityP
       return true;
     }
 
+    // The glow is an SVG drop-shadow filter, and browsers can't composite those on the GPU — every
+    // frame the filtered region has to be re-rasterized on the CPU. Applying it while the stroke is
+    // actively drawing in (geometry changing every frame) was the actual cause of the dropped
+    // frames/stutter — not the animation's duration. So it stays off the path entirely until the
+    // reveal is done, then switches on once, onto a now-static shape that never needs re-rasterizing.
+    function applyGlow() {
+      const { line: linePath } = getPaths();
+      if (linePath) linePath.style.filter = `url(#${equityStrokeId}-glow)`;
+    }
+
+    // Drops a small pulsing "live" marker on the most recent point once the draw-in has reached
+    // it — additive to the reveal above (reads the already-rendered path, doesn't touch dash
+    // offsets), so it can't desync the line/fill animation it's riding on.
+    function positionEndDot() {
+      if (!endDot) return;
+      const linePath = container!.querySelector<SVGPathElement>(".recharts-area-curve");
+      const svg = container!.querySelector(".recharts-wrapper svg");
+      if (!linePath || !svg) return;
+      const points = parsePathPoints(linePath.getAttribute("d"));
+      const last = points[points.length - 1];
+      if (!last) return;
+      const svgRect = svg.getBoundingClientRect();
+      const containerRect = container!.getBoundingClientRect();
+      const x = svgRect.left - containerRect.left + last.x;
+      const y = svgRect.top - containerRect.top + last.y;
+      endDot.style.transform = `translate(${x}px, ${y}px)`;
+      endDot.style.opacity = "1";
+    }
+
     function tick(now: number) {
       // Elements may not exist yet on the very first frames (ResponsiveContainer measures its
       // size via ResizeObserver before rendering the real chart) — don't start the clock until
       // they're actually there, or the reveal would jump straight to a partway-done state.
-      const probe = container!.querySelector(".recharts-area-curve");
-      if (!probe) {
+      if (!getPaths().line) {
         raf = requestAnimationFrame(tick);
         return;
       }
@@ -94,6 +156,8 @@ export function EquityCurveChart({ equityCurve, totalR }: { equityCurve: EquityP
         raf = requestAnimationFrame(tick);
       } else {
         finished = true;
+        applyGlow();
+        positionEndDot();
       }
     }
     raf = requestAnimationFrame(tick);
@@ -106,6 +170,8 @@ export function EquityCurveChart({ equityCurve, totalR }: { equityCurve: EquityP
       if (!finished) return;
       const linePath = container!.querySelector<SVGPathElement>(".recharts-area-curve");
       if (linePath && linePath.style.strokeDashoffset !== "0") applyFrame(1);
+      applyGlow();
+      positionEndDot();
     });
     observer.observe(container, { childList: true, subtree: true });
 
@@ -200,7 +266,9 @@ export function EquityCurveChart({ equityCurve, totalR }: { equityCurve: EquityP
       const svgOffsetY = svgRect.top - containerRect.top;
       const overlayX = svgOffsetX + point.x;
       const overlayY = svgOffsetY + point.y;
-      const color = data.tradeR >= 0 ? "#34d399" : "#ef4444";
+      // Matches the line's own coloring rule (cumulative position, not the individual trade) so the
+      // hover dot never renders a color that visibly clashes with the segment it's sitting on.
+      const color = data.cumulativeR >= 0 ? "#34d399" : "#ef4444";
 
       cursorLine.style.opacity = "1";
       cursorLine.style.transform = `translateX(${overlayX}px)`;
@@ -251,41 +319,67 @@ export function EquityCurveChart({ equityCurve, totalR }: { equityCurve: EquityP
     };
   }, [equityCurve]);
 
-  /** Hard-edged color stops so the equity line itself turns red for a losing trade's
-   *  segment and back to green for the next winning one, instead of a uniform color. */
-  const equityLineStops = useMemo(() => {
+  /** Which color each segment should be — red only while the curve is actually underwater
+   *  (cumulative R below its starting baseline), green everywhere else — matching a classic
+   *  "profit vs. drawdown" equity chart, where a single losing trade that's still net profitable
+   *  overall doesn't turn the line red. Shared by both stop builders below so they always agree. */
+  const segmentColors = useMemo(() => {
     const points = equityCurve;
     if (points.length < 2) return [];
-    const segments = points.length - 1;
-    const stops: { offset: number; color: string }[] = [];
-    for (let i = 0; i < segments; i++) {
-      const color = points[i + 1].tradeR >= 0 ? "#34d399" : "#ef4444";
-      stops.push({ offset: (i / segments) * 100, color });
-      stops.push({ offset: ((i + 1) / segments) * 100, color });
-    }
-    return stops;
+    const colors: boolean[] = []; // true = green/above water
+    for (let i = 1; i < points.length; i++) colors.push(points[i].cumulativeR >= 0);
+    return colors;
   }, [equityCurve]);
 
-  /** Same per-segment coloring as the line, but blended into the card surface (via color-mix)
-   *  for a deeper, richer "coating" tone instead of a bright translucent overlay, and with a
-   *  soft interpolation band at each segment boundary so color changes read as a gradient
-   *  wash rather than a hard-edged seam. */
-  const equityFillStops = useMemo(() => {
-    const points = equityCurve;
-    if (points.length < 2) return [];
-    const segments = points.length - 1;
-    const feather = Math.min(2.5, 100 / segments / 4);
+  /** Run-length-encoded color stops: a new stop pair only where the color actually *changes*,
+   *  not one per trade. With real trade data the line is mostly one long green run with red only
+   *  during genuine drawdowns, so this is typically 2-6 stops total instead of two-per-trade —
+   *  which matters a lot for an animating gradient, since the browser has to re-resolve however
+   *  many stops exist on every frame the visible portion changes. A gradient with dozens of stops
+   *  changing every frame (one full trade history's worth) was visibly janky; a handful isn't. */
+  const equityLineStops = useMemo(() => {
+    const segments = segmentColors.length;
+    if (segments === 0) return [];
     const stops: { offset: number; color: string }[] = [];
-    for (let i = 0; i < segments; i++) {
-      const raw = points[i + 1].tradeR >= 0 ? "#34d399" : "#ef4444";
-      const color = `color-mix(in srgb, ${raw} 50%, var(--color-surface))`;
-      const start = (i / segments) * 100;
-      const end = ((i + 1) / segments) * 100;
-      stops.push({ offset: i === 0 ? start : start + feather, color });
-      stops.push({ offset: i === segments - 1 ? end : end - feather, color });
+    let runStart = 0;
+    for (let i = 0; i <= segments; i++) {
+      const changed = i === segments || segmentColors[i] !== segmentColors[runStart];
+      if (changed) {
+        const color = segmentColors[runStart] ? "#34d399" : "#ef4444";
+        stops.push({ offset: (runStart / segments) * 100, color });
+        stops.push({ offset: (i / segments) * 100, color });
+        runStart = i;
+      }
     }
     return stops;
-  }, [equityCurve]);
+  }, [segmentColors]);
+
+  /** Same run-collapsed coloring as the line, as a translucent tint (plain color + stop-opacity)
+   *  rather than blended with the surface via color-mix() — that function evaluated inside an SVG
+   *  `stop-color` *attribute* (not a CSS `style` property, where support is far more consistent)
+   *  was the actual cause of the fill visibly flickering: an unreliably-supported paint value that
+   *  the renderer had to keep re-resolving. Plain hex + stop-opacity is universally supported and
+   *  paints once, no flicker. The vertical mask (below) still does the "wisp" fade toward the
+   *  bottom on top of this. */
+  const equityFillStops = useMemo(() => {
+    const segments = segmentColors.length;
+    if (segments === 0) return [];
+    const feather = Math.min(2.5, 100 / segments / 4);
+    const stops: { offset: number; color: string; opacity: number }[] = [];
+    let runStart = 0;
+    for (let i = 0; i <= segments; i++) {
+      const changed = i === segments || segmentColors[i] !== segmentColors[runStart];
+      if (changed) {
+        const color = segmentColors[runStart] ? "#34d399" : "#ef4444";
+        const start = (runStart / segments) * 100;
+        const end = (i / segments) * 100;
+        stops.push({ offset: runStart === 0 ? start : start + feather, color, opacity: 0.5 });
+        stops.push({ offset: i === segments ? end : end - feather, color, opacity: 0.5 });
+        runStart = i;
+      }
+    }
+    return stops;
+  }, [segmentColors]);
 
   /** Weekly-cadence x-axis ticks (snapped to the nearest actual trade date), so the axis reads
    *  as calendar time rather than every single trade date once history grows. The step widens
@@ -326,26 +420,42 @@ export function EquityCurveChart({ equityCurve, totalR }: { equityCurve: EquityP
   }, [equityCurve]);
 
   return (
-    <Card className="lg:col-span-2">
-      <CardHeader className="flex-row items-center justify-between space-y-0">
-        <CardTitle>Equity Curve</CardTitle>
-        <span
-          className={cn(
-            "rounded-md px-2 py-0.5 text-sm font-bold tabular-nums",
-            totalR >= 0 ? "bg-[#34d399]/15 text-[#34d399]" : "bg-[var(--color-danger)]/15 text-[var(--color-danger)]",
+    <Card className="relative shadow-lg shadow-black/20 lg:col-span-2">
+      <div
+        className="h-1 rounded-t-lg"
+        style={{ background: totalR >= 0 ? "linear-gradient(90deg, #059669, #34d399)" : "linear-gradient(90deg, #dc2626, #f87171)" }}
+      />
+      <CardHeader className="flex-row items-center justify-between space-y-0 gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <IconBadge icon={TrendingUp} tone={totalR >= 0 ? "green" : "red"} size={32} />
+          <CardTitle className="text-sm font-bold text-[var(--color-text)]">Equity Curve (R)</CardTitle>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {maxDrawdownR != null && (
+            <span className="rounded-full bg-[var(--color-danger)]/10 px-2.5 py-1 text-xs font-semibold tabular-nums text-[var(--color-text-muted)]">
+              Max DD −{Math.abs(maxDrawdownR).toFixed(2)}R
+            </span>
           )}
-        >
-          {totalR >= 0 ? "+" : ""}
-          {totalR.toFixed(2)}R
-        </span>
+          <span
+            className={cn(
+              "rounded-full px-2.5 py-1 text-sm font-extrabold tabular-nums shadow-sm",
+              totalR >= 0 ? "bg-[#34d399]/15 text-[#34d399]" : "bg-[var(--color-danger)]/15 text-[var(--color-danger)]",
+            )}
+          >
+            {animatedTotalR >= 0 ? "+" : ""}
+            {animatedTotalR.toFixed(2)}R
+          </span>
+        </div>
       </CardHeader>
       <CardContent ref={chartRef} className="equity-curve-chart relative h-64">
         {/* No card-level pop-in here on purpose — the line drawing itself in and the fill fading in
             behind it (driven imperatively, see the effect above) are the entrance; a simultaneous
             whole-card scale/opacity pop was visually louder than that and read as the only motion.
-            The glow filter + fade mask stay static (always on) — no toggling, no CSS keyframe. The
-            line/fill start hidden via plain CSS so there's no flash of the fully-drawn state before
-            the effect above finds the elements and takes over. */}
+            The fade mask stays static (always on) — no toggling, no CSS keyframe. The glow filter
+            is deliberately NOT set here (see applyGlow in the effect above): switching it on only
+            after the reveal finishes is what keeps the draw-in itself smooth. The line/fill start
+            hidden via plain CSS so there's no flash of the fully-drawn state before the effect above
+            finds the elements and takes over. */}
         <style>{`
           .equity-curve-chart .recharts-area-area {
             mask: url(#${equityStrokeId}-fillmask);
@@ -353,7 +463,6 @@ export function EquityCurveChart({ equityCurve, totalR }: { equityCurve: EquityP
             opacity: 0;
           }
           .equity-curve-chart .recharts-area-curve {
-            filter: url(#${equityStrokeId}-glow);
             stroke-dasharray: ${DASH_LENGTH};
             stroke-dashoffset: ${DASH_LENGTH};
           }
@@ -366,21 +475,21 @@ export function EquityCurveChart({ equityCurve, totalR }: { equityCurve: EquityP
                   <stop key={i} offset={`${s.offset}%`} stopColor={s.color} />
                 ))}
               </linearGradient>
-              {/* Same segment colors as the line, blended into the panel surface for a deeper,
-                  calmer "coating" tone — kept as its own gradient so nothing here touches the
-                  line's own crisp opacity. */}
+              {/* Same segment colors as the line, as a translucent tint (see equityFillStops) —
+                  kept as its own gradient so nothing here touches the line's own crisp opacity. */}
               <linearGradient id={`${equityStrokeId}-fill`} x1="0" y1="0" x2="1" y2="0">
                 {equityFillStops.map((s, i) => (
-                  <stop key={i} offset={`${s.offset}%`} stopColor={s.color} />
+                  <stop key={i} offset={`${s.offset}%`} stopColor={s.color} stopOpacity={s.opacity} />
                 ))}
               </linearGradient>
-              {/* Vertical fade applied only to the fill (via the scoped mask/CSS above) — falls off
-                  quickly so the coating reads as a soft wisp hugging the line, not a solid block. */}
+              {/* Vertical fade applied only to the fill (via the scoped mask/CSS above) — a lush,
+                  deep "filled mountain" coating that stays substantial most of the way down
+                  before tapering off, rather than a thin wisp hugging just the line. */}
               <linearGradient id={`${equityStrokeId}-fade`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="white" stopOpacity={0.9} />
-                <stop offset="14%" stopColor="white" stopOpacity={0.5} />
-                <stop offset="40%" stopColor="white" stopOpacity={0.14} />
-                <stop offset="100%" stopColor="white" stopOpacity={0} />
+                <stop offset="0%" stopColor="white" stopOpacity={0.95} />
+                <stop offset="30%" stopColor="white" stopOpacity={0.55} />
+                <stop offset="65%" stopColor="white" stopOpacity={0.26} />
+                <stop offset="100%" stopColor="white" stopOpacity={0.05} />
               </linearGradient>
               <mask id={`${equityStrokeId}-fillmask`} maskUnits="objectBoundingBox" x="0" y="0" width="1" height="1">
                 <rect x="0" y="0" width="100%" height="100%" fill={`url(#${equityStrokeId}-fade)`} />
@@ -388,10 +497,10 @@ export function EquityCurveChart({ equityCurve, totalR }: { equityCurve: EquityP
               {/* Glow is applied only to the line stroke (scoped CSS above), not the fill beneath it —
                   a shadow under the whole coated area read as a heavy, murky block. */}
               <filter id={`${equityStrokeId}-glow`} x="-20%" y="-60%" width="140%" height="220%">
-                <feDropShadow dx="0" dy="1" stdDeviation="2" floodColor="#000000" floodOpacity="0.35" />
+                <feDropShadow dx="0" dy="1.5" stdDeviation="2.8" floodColor="#000000" floodOpacity="0.4" />
               </filter>
             </defs>
-            <CartesianGrid strokeDasharray="3 8" stroke="var(--color-border)" strokeOpacity={0.35} vertical={false} />
+            <CartesianGrid strokeDasharray="3 8" stroke="var(--color-border)" strokeOpacity={0.35} />
             <XAxis
               dataKey="date"
               ticks={equityXTicks}
@@ -410,12 +519,15 @@ export function EquityCurveChart({ equityCurve, totalR }: { equityCurve: EquityP
               tickFormatter={(v) => `${v}R`}
               width={36}
             />
+            {/* A solid baseline at breakeven — the reference point everything above/below the
+                curve actually means, distinct from the dashed grid around it. */}
+            <ReferenceLine y={0} stroke="var(--color-text-muted)" strokeOpacity={0.45} strokeWidth={1} />
             <Area
               type="monotone"
               dataKey="cumulativeR"
               stroke={`url(#${equityStrokeId})`}
               fill={`url(#${equityStrokeId}-fill)`}
-              strokeWidth={2.5}
+              strokeWidth={3}
               strokeLinecap="round"
               strokeLinejoin="round"
               dot={false}
@@ -438,6 +550,25 @@ export function EquityCurveChart({ equityCurve, totalR }: { equityCurve: EquityP
           className="pointer-events-none absolute top-0 left-0 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 opacity-0"
           style={{ background: "var(--color-surface)", willChange: "transform" }}
         />
+        {/* "Live" marker on the most recent point — dropped in once the draw-in animation reaches
+            it (see positionEndDot above), a soft pulsing ring reads as "this is where you are now"
+            on the curve, the way live-market charts mark the current price. */}
+        <div
+          ref={endDotRef}
+          className="pointer-events-none absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2 opacity-0 transition-opacity duration-300"
+          style={{ willChange: "transform" }}
+        >
+          <span className="relative flex h-3 w-3">
+            <span
+              className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
+              style={{ background: totalR >= 0 ? "#34d399" : "#ef4444" }}
+            />
+            <span
+              className="relative inline-flex h-3 w-3 rounded-full border-2 border-[var(--color-surface)]"
+              style={{ background: totalR >= 0 ? "#34d399" : "#ef4444" }}
+            />
+          </span>
+        </div>
         <div
           ref={tooltipRef}
           className="pointer-events-none absolute top-0 left-0 z-10 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-xs opacity-0 shadow-lg"

@@ -100,14 +100,15 @@ export function TradeCalendar({
   const selLosses = selection?.trades.filter((t) => t.outcome === "loss").length ?? 0;
 
   return (
-    <Card>
+    <Card className="relative shadow-lg shadow-black/20">
+      <div className="h-1 rounded-t-lg" style={{ background: "linear-gradient(90deg, #6366f1, #8b5cf6, #2dd4bf)" }} />
       <div className="flex items-center gap-3 border-b border-[var(--color-border)] p-4">
         <IconBadge icon={CalendarDays} tone="violet" size={30} />
         <h3 className="text-base font-bold text-[var(--color-text)]">Trade Calendar</h3>
         <div className="h-px flex-1 bg-[var(--color-border)]" />
         <button
           onClick={() => setCollapsed((v) => !v)}
-          className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+          className="rounded-md p-1 text-[var(--color-text-muted)] transition-colors duration-100 hover:bg-[var(--color-background)] hover:text-[var(--color-text)]"
         >
           <ChevronUp className={cn("h-4 w-4 transition-transform", collapsed && "rotate-180")} />
         </button>
@@ -294,7 +295,10 @@ export function TradeCalendar({
               <h4 className="mb-4 text-sm font-bold text-[var(--color-text)]">Select a Day or Week</h4>
               {!selection ? (
                 <div className="flex flex-col items-center gap-3 py-6 text-center">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-primary)]/70">
+                  <div
+                    className="flex h-12 w-12 items-center justify-center rounded-full shadow-md"
+                    style={{ background: "linear-gradient(135deg, #8b5cf6, #6366f1)" }}
+                  >
                     <MousePointerClick className="h-5 w-5 text-white" />
                   </div>
                   <p className="text-sm text-[var(--color-text-muted)]">Click on a day or week to see details</p>

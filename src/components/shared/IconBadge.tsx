@@ -10,7 +10,7 @@ export type IconComponent = ComponentType<{
   strokeWidth?: number;
 }>;
 
-const GRADIENTS: Record<IconTone, string> = {
+export const TONE_GRADIENTS: Record<IconTone, string> = {
   violet: "linear-gradient(135deg, #8b5cf6, #6366f1)",
   green: "linear-gradient(135deg, #34d399, #059669)",
   red: "linear-gradient(135deg, #f87171, #dc2626)",
@@ -19,6 +19,19 @@ const GRADIENTS: Record<IconTone, string> = {
   blue: "linear-gradient(135deg, #60a5fa, #2563eb)",
   rose: "linear-gradient(135deg, #fb7185, #e11d48)",
   slate: "linear-gradient(135deg, #94a3b8, #475569)",
+};
+
+/** Single flat accent hex per tone (the lighter of each gradient's two stops) — for glows,
+ *  accent text, and anything else that wants one representative color rather than a gradient. */
+export const TONE_ACCENT: Record<IconTone, string> = {
+  violet: "#8b5cf6",
+  green: "#34d399",
+  red: "#f87171",
+  amber: "#fbbf24",
+  teal: "#2dd4bf",
+  blue: "#60a5fa",
+  rose: "#fb7185",
+  slate: "#94a3b8",
 };
 
 export function IconBadge({
@@ -37,7 +50,7 @@ export function IconBadge({
   return (
     <div
       className={cn("flex shrink-0 items-center justify-center rounded-[10px] shadow-sm", className)}
-      style={{ width: size, height: size, background: GRADIENTS[tone] }}
+      style={{ width: size, height: size, background: TONE_GRADIENTS[tone] }}
     >
       {Icon && <Icon className="text-white" style={{ width: size * 0.52, height: size * 0.52 }} strokeWidth={2.25} />}
       {emoji && <span style={{ fontSize: size * 0.52, lineHeight: 1 }}>{emoji}</span>}

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { ChevronDown } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { IconBadge, type IconTone } from "@/components/shared/IconBadge";
 import { cn } from "@/lib/utils";
 
@@ -24,8 +23,12 @@ export function CollapsibleSection({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <Card className="overflow-hidden">
-      <div className="flex w-full items-center justify-between gap-2 p-4">
+    // No card chrome here on purpose — this is just a category label sitting directly above its
+    // content, not another nested box. Each child (WinRateCard, saved combination, etc.) already
+    // carries its own surface/border/hover-glow, so wrapping them again in a second card read as a
+    // box-inside-a-box.
+    <div>
+      <div className="flex w-full items-center justify-between gap-2 pb-3">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -44,7 +47,7 @@ export function CollapsibleSection({
         </button>
         {headerRight && <div className="shrink-0" onClick={(e) => e.stopPropagation()}>{headerRight}</div>}
       </div>
-      {open && <CardContent className="pt-0">{children}</CardContent>}
-    </Card>
+      {open && children}
+    </div>
   );
 }

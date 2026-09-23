@@ -47,7 +47,7 @@ export function OutcomeDonut({
     <div className="outcome-donut-chart flex h-full flex-col items-center justify-center gap-2">
       <style>{`
         .outcome-donut-chart .recharts-sector {
-          transition: d 260ms cubic-bezier(0.34, 1.56, 0.64, 1), filter 260ms ease;
+          transition: d 200ms ease-out, filter 200ms ease;
         }
       `}</style>
       <div className="relative w-full flex-1" style={{ minHeight: 0 }}>
@@ -90,25 +90,38 @@ export function OutcomeDonut({
               startAngle={90}
               endAngle={-270}
               stroke="none"
-              style={{ filter: `url(#${glowId})` }}
               onMouseEnter={(entry: PieSectorDataItem) => {
                 const segment = entry.payload as Segment | undefined;
                 if (segment) setHoveredKey(segment.key);
               }}
               onMouseLeave={() => setHoveredKey(null)}
               activeShape={(props: PieSectorDataItem) => {
-                const segment = props.payload as Segment | undefined;
+                // Recharts hands us a props object that already carries a `key` — spreading it
+                // straight into JSX trips React's "key must be passed directly" warning, so it's
+                // stripped here before the spread (the element itself doesn't need a key; it's a
+                // single returned node, not a list item).
+                const { key: _key, ...rest } = props as PieSectorDataItem & { key?: string };
+                const segment = rest.payload as Segment | undefined;
                 return (
+                  // The glow filter only ever lands on this one hovered sector — a static, one-off
+                  // element, not the whole group mid-entrance-animation — so it never has to fight
+                  // an actively-changing shape for a per-frame re-rasterize (the base <Pie> used to
+                  // carry this filter permanently, including through its 900ms mount animation,
+                  // which is what was actually causing the frame drops/stutter on load).
                   <Sector
-                    {...props}
-                    outerRadius={(Number(props.outerRadius) || 0) + 6}
+                    {...rest}
+                    outerRadius={(Number(rest.outerRadius) || 0) + 6}
                     stroke={segment?.base ?? "var(--color-surface)"}
                     strokeWidth={2}
+                    style={{ filter: `url(#${glowId})` }}
                   />
                 );
               }}
-              animationDuration={900}
-              animationEasing="ease-out"
+              // Recharts' own mount animation runs through its internal react-smooth engine — a
+              // separate rAF+re-render loop competing with everything else animating on dashboard
+              // mount. It's not worth that cost for a secondary chart; the sectors' own hover
+              // transition (see the <style> block below) stays, just not the initial grow-in.
+              isAnimationActive={false}
             >
               {data.map((d) => (
                 <Cell key={d.key} fill={`url(#${gradientId}-${d.key})`} />
@@ -143,9 +156,13 @@ export function OutcomeDonut({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+      <div className="flex flex-wrap items-center justify-center gap-1.5">
         {segments.map((s) => (
-          <div key={s.key} className="flex items-center gap-1.5">
+          <div
+            key={s.key}
+            className="flex items-center gap-1.5 rounded-full border px-2 py-1 transition-transform duration-150 hover:-translate-y-0.5"
+            style={{ borderColor: `color-mix(in srgb, ${s.base} 30%, transparent)`, background: `color-mix(in srgb, ${s.base} 10%, var(--color-background))` }}
+          >
             <span className="h-2 w-2 rounded-[3px]" style={{ background: s.base, boxShadow: `0 0 6px ${s.base}` }} />
             <span className="text-sm font-bold tabular-nums" style={{ color: s.base }}>
               {s.pct}%

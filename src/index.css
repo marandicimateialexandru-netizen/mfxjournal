@@ -1,20 +1,21 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #1a1a2e;
-  --color-primary-foreground: #f4f4f7;
-  --color-background: #0f0f1a;
-  --color-surface: #16161f;
-  --color-surface-foreground: #e4e4e7;
-  --color-text: #e4e4e7;
-  --color-text-muted: #8b8b98;
+  --color-primary: #241a3d;
+  --color-primary-foreground: #f5f3ff;
+  --color-background: #0d0a16;
+  --color-surface: #161228;
+  --color-surface-foreground: #e8e5f5;
+  --color-text: #e8e5f5;
+  --color-text-muted: #8e86ad;
   --color-success: #34d399;
   --color-danger: #ef4444;
   --color-warning: #facc15;
-  --color-border: #26262f;
+  --color-border: #241f3a;
 
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-display: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
 
   --radius-lg: 0.75rem;
   --radius-md: 0.5rem;
@@ -36,7 +37,14 @@ body,
 }
 
 body {
-  background-color: var(--color-background);
+  /* A subtle two-glow wash over the base near-black — reads as depth and a deliberate cool violet
+     identity instead of a flat, plain grey, without being loud enough to compete with the content
+     sitting on top of it. */
+  background:
+    radial-gradient(ellipse 1100px 750px at 12% -8%, color-mix(in srgb, #7c3aed 16%, transparent), transparent 60%),
+    radial-gradient(ellipse 900px 650px at 105% 15%, color-mix(in srgb, #2dd4bf 8%, transparent), transparent 55%),
+    var(--color-background);
+  background-attachment: fixed;
   color: var(--color-text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -46,6 +54,7 @@ body {
 .tabular-nums {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
+  font-family: var(--font-display);
 }
 
 ::-webkit-scrollbar {
@@ -61,20 +70,6 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background-color: var(--color-text-muted);
-}
-
-@keyframes countUp {
-  from {
-    opacity: 0;
-    transform: translateY(2px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-.animate-count-up {
-  animation: countUp 0.25s ease-out;
 }
 
 .recharts-bar-rectangle {
@@ -111,20 +106,48 @@ body {
 }
 
 @keyframes radarPopIn {
-  0% {
+  from {
     opacity: 0;
-    transform: scale(0.82);
+    transform: scale(0.97);
   }
-  60% {
+  to {
     opacity: 1;
-    transform: scale(1.035);
-  }
-  100% {
     transform: scale(1);
   }
 }
 .animate-radar-pop {
-  animation: radarPopIn 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation: radarPopIn 0.4s ease-out both;
+}
+
+/* Applied to every Card app-wide (see ui/card.tsx): on hover, the border lights up violet and a
+   soft radial wash blooms from the top-left corner — the same "spotlight" hover language the
+   reference app uses. The wash is a pseudo-element sized to `inset: 0` with `border-radius:
+   inherit`, so it naturally respects the card's rounded corners without the parent needing
+   `overflow-hidden` (which would re-clip hover-growing chart content, as AccentCard learned). */
+.card-glow {
+  position: relative;
+  /* Establishes a local stacking context so the pseudo's negative z-index (below) only reaches
+     behind THIS card's own content, not behind sibling cards or the page underneath it. */
+  isolation: isolate;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+.card-glow::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(circle at 16% 10%, rgba(139, 92, 246, 0.055), transparent 55%);
+  opacity: 0;
+  transition: opacity 200ms ease;
+  pointer-events: none;
+}
+.card-glow:hover {
+  border-color: rgba(139, 92, 246, 0.3);
+  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.1);
+}
+.card-glow:hover::before {
+  opacity: 1;
 }
 
 .text-gradient-profit {
