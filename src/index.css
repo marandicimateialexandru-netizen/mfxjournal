@@ -119,6 +119,45 @@ body {
   animation: radarPopIn 0.4s ease-out both;
 }
 
+/* A one-shot "sonar ping" ring expanding out from the radar's center, timed to land right as the
+   web finishes drawing itself in (see the animationDuration on <Radar>) — plays once and stops
+   (no loop), so unlike the equity curve's old pulsing end-dot this can't turn into a persistent
+   flicker complaint. Pure transform/opacity, GPU-composited, no layout or filter cost. */
+@keyframes radarSonarPing {
+  0% {
+    transform: scale(0.35);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+.animate-radar-ping {
+  animation: radarSonarPing 1100ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 150ms;
+}
+
+/* A single pulse ring around the score meter's dot once it lands in its final spot — same "plays
+   once, then stays still" principle as the radar ping above. */
+@keyframes dotLandPulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+.animate-dot-pulse {
+  animation: dotLandPulse 700ms ease-out both;
+  animation-delay: 1300ms;
+}
+
 /* Applied to every Card app-wide (see ui/card.tsx): on hover, the border lights up violet and a
    soft radial wash blooms from the top-left corner — the same "spotlight" hover language the
    reference app uses. The wash is a pseudo-element sized to `inset: 0` with `border-radius:

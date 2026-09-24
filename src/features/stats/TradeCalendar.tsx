@@ -181,15 +181,19 @@ export function TradeCalendar({
                             className={cn(
                               "flex min-h-[128px] flex-col items-start justify-between gap-1 rounded-xl border p-3 text-left transition-all duration-150",
                               !inMonth && "opacity-25",
-                              isToday && "ring-2 ring-[var(--color-primary)] ring-offset-1 ring-offset-[var(--color-surface)]",
+                              // A vivid violet accent (not --color-primary, which is a dark navy-violet
+                              // background tone and barely shows against the equally dark cells) plus a
+                              // soft glow — enough to catch the eye without being loud.
+                              isToday &&
+                                "ring-2 ring-[#8b5cf6] ring-offset-1 ring-offset-[var(--color-surface)] shadow-[0_0_14px_-3px_rgba(139,92,246,0.6)]",
                               tone === "none" && "border-white/[0.04] bg-white/[0.015]",
                               tone !== "none" && "border-transparent shadow-sm hover:-translate-y-0.5",
                               tone === "positive" &&
-                                "hover:shadow-[0_2px_8px_rgba(0,0,0,0.15),0_0_0_1.5px_color-mix(in_srgb,#34d399_60%,transparent)]",
+                                "hover:shadow-[0_2px_8px_rgba(0,0,0,0.15),0_0_0_1.5px_color-mix(in_srgb,#34d399_28%,transparent)]",
                               tone === "negative" &&
-                                "hover:shadow-[0_2px_8px_rgba(0,0,0,0.15),0_0_0_1.5px_color-mix(in_srgb,var(--color-danger)_60%,transparent)]",
+                                "hover:shadow-[0_2px_8px_rgba(0,0,0,0.15),0_0_0_1.5px_color-mix(in_srgb,var(--color-danger)_28%,transparent)]",
                               tone === "warning" &&
-                                "hover:shadow-[0_2px_8px_rgba(0,0,0,0.15),0_0_0_1.5px_color-mix(in_srgb,var(--color-warning)_60%,transparent)]",
+                                "hover:shadow-[0_2px_8px_rgba(0,0,0,0.15),0_0_0_1.5px_color-mix(in_srgb,var(--color-warning)_28%,transparent)]",
                             )}
                           >
                             <span
@@ -238,11 +242,11 @@ export function TradeCalendar({
                               weekTone === "none" && "border-white/[0.04] bg-white/[0.015]",
                               weekTone !== "none" && "border-transparent shadow-sm hover:-translate-y-0.5",
                               weekTone === "positive" &&
-                                "hover:shadow-[0_2px_8px_rgba(0,0,0,0.15),0_0_0_1.5px_color-mix(in_srgb,#34d399_60%,transparent)]",
+                                "hover:shadow-[0_2px_8px_rgba(0,0,0,0.15),0_0_0_1.5px_color-mix(in_srgb,#34d399_28%,transparent)]",
                               weekTone === "negative" &&
-                                "hover:shadow-[0_2px_8px_rgba(0,0,0,0.15),0_0_0_1.5px_color-mix(in_srgb,var(--color-danger)_60%,transparent)]",
+                                "hover:shadow-[0_2px_8px_rgba(0,0,0,0.15),0_0_0_1.5px_color-mix(in_srgb,var(--color-danger)_28%,transparent)]",
                               weekTone === "warning" &&
-                                "hover:shadow-[0_2px_8px_rgba(0,0,0,0.15),0_0_0_1.5px_color-mix(in_srgb,var(--color-warning)_60%,transparent)]",
+                                "hover:shadow-[0_2px_8px_rgba(0,0,0,0.15),0_0_0_1.5px_color-mix(in_srgb,var(--color-warning)_28%,transparent)]",
                             )}
                           >
                             <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
