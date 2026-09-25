@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, ChevronDown, Plus } from "lucide-react";
+import { Check, ChevronDown, Plus, LineChart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -37,13 +37,20 @@ export function WorkspaceSwitcher({ collapsed }: { collapsed: boolean }) {
         <DropdownMenuTrigger asChild>
           <button
             className={cn(
-              "flex w-full items-center justify-between rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-2.5 py-2 text-sm font-medium text-[var(--color-text)] transition-colors duration-100 hover:border-[var(--color-primary)]/40",
+              "group flex w-full items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-2.5 py-2 text-sm font-medium text-[var(--color-text)] transition-colors duration-150 hover:border-[#8b5cf6]/45 hover:shadow-[0_0_0_1px_rgba(139,92,246,0.15)]",
               collapsed && "justify-center px-0",
             )}
           >
-            {!collapsed && <span className="truncate">{workspaceName}</span>}
-            {!collapsed && <ChevronDown className="h-3.5 w-3.5 text-[var(--color-text-muted)]" />}
-            {collapsed && <span className="text-xs">{workspaceName.slice(0, 1)}</span>}
+            <span
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px]"
+              style={{ background: "linear-gradient(135deg, #8b5cf6, #6366f1)" }}
+            >
+              <LineChart className="h-3 w-3 text-white" />
+            </span>
+            {!collapsed && <span className="min-w-0 flex-1 truncate text-left">{workspaceName}</span>}
+            {!collapsed && (
+              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-muted)] transition-transform duration-150 group-data-[state=open]:rotate-180" />
+            )}
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-56">

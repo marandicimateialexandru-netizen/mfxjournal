@@ -95,9 +95,9 @@ export const PERSONAL_VARIABLE_SET: TemplateData = {
       type: "text",
       icon: "🕐",
       values: [
-        { label: "Dimineață", icon: "◐" },
-        { label: "Zi", icon: "○" },
-        { label: "Seară", icon: "●" },
+        { label: "London", icon: "◐" },
+        { label: "New York", icon: "○" },
+        { label: "No Session", icon: "●" },
       ],
     },
     {
