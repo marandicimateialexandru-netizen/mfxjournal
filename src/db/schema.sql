@@ -214,6 +214,14 @@ CREATE TABLE IF NOT EXISTS onboarding_state (
 CREATE INDEX IF NOT EXISTS idx_trades_workspace ON trades(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_trades_entry_time ON trades(entry_time);
 CREATE INDEX IF NOT EXISTS idx_trades_strategy ON trades(strategy_id);
+-- Covers listTrades' exact `WHERE workspace_id = ? ORDER BY entry_time ASC` — lets SQLite satisfy
+-- both the filter and the sort straight from the index (no separate filesort step) once a
+-- workspace's trade count gets into the thousands.
+CREATE INDEX IF NOT EXISTS idx_trades_workspace_entry ON trades(workspace_id, entry_time);
 CREATE INDEX IF NOT EXISTS idx_tvv_trade ON trade_variable_values(trade_id);
 CREATE INDEX IF NOT EXISTS idx_tvv_variable ON trade_variable_values(variable_id);
+-- Was missing entirely — every trade list load hydrates screenshots via `WHERE trade_id IN (...)`
+-- across every fetched trade at once (see hydrate() in db/queries/trades.ts), which was a full
+-- table scan of trade_screenshots on every load with no index to satisfy it.
+CREATE INDEX IF NOT EXISTS idx_trade_screenshots_trade ON trade_screenshots(trade_id);
 CREATE INDEX IF NOT EXISTS idx_planning_workspace ON planning_entries(workspace_id, period, date_start);

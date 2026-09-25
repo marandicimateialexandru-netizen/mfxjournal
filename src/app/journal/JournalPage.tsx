@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import { Plus, Trash2, ArrowUpDown } from "lucide-react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,6 +18,19 @@ import type { Trade } from "@/db/types";
 type SortKey = "entry_time" | "market" | "outcome" | "result_r";
 
 const OUTCOME_VARIANT: Record<string, "win" | "loss" | "be"> = { win: "win", loss: "loss", be: "be" };
+
+const COLUMNS: [SortKey, string][] = [
+  ["entry_time", "Date"],
+  ["market", "Market"],
+  ["outcome", "Outcome"],
+  ["result_r", "Result"],
+];
+
+// Shared by the header and every row so they always line up — a plain <table> can't be virtualized
+// (its layout algorithm needs every row present to size columns), so this is a CSS-grid table
+// look-alike instead, with column widths fixed here rather than left to auto-layout.
+const GRID_COLS = "40px 130px minmax(0,1fr) 110px 120px minmax(0,1.6fr)";
+const ROW_HEIGHT = 44;
 
 export default function JournalPage() {
   const { data: trades = [] } = useTrades();
@@ -54,6 +68,18 @@ export default function JournalPage() {
       return cmp * sortDir;
     });
   }, [trades, search, outcomeFilter, sortKey, sortDir]);
+
+  // Only the rows scrolled into view (plus a small overscan buffer) ever exist in the DOM — at 18
+  // trades that's moot, but this page has no cap on trade count, and a few thousand real <tr>
+  // elements (each with a checkbox, a badge, hover/click handlers) is a genuinely slow mount and a
+  // sluggish scroll, not just a theoretical concern once a journal has real trading history behind it.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: filtered.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 12,
+  });
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) setSortDir((d) => (d === 1 ? -1 : 1));
@@ -118,75 +144,80 @@ export default function JournalPage() {
         </Select>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-[var(--color-border)]">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface)] text-left text-[var(--color-text-muted)]">
-              <th className="w-8 p-2"></th>
-              {(
-                [
-                  ["entry_time", "Date"],
-                  ["market", "Market"],
-                  ["outcome", "Outcome"],
-                  ["result_r", "Result"],
-                ] as [SortKey, string][]
-              ).map(([key, label]) => (
-                <th key={key} className="cursor-pointer select-none p-2 font-medium" onClick={() => toggleSort(key)}>
-                  <span className="inline-flex items-center gap-1">
-                    {label} <ArrowUpDown className="h-3 w-3" />
-                  </span>
-                </th>
-              ))}
-              <th className="p-2 font-medium">Variables</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((t) => (
-              <tr
-                key={t.id}
-                className="cursor-pointer border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-surface)]"
-                onClick={() => setActiveTrade(t)}
-              >
-                <td className="p-2" onClick={(e) => e.stopPropagation()}>
-                  <Checkbox checked={selected.has(t.id)} onCheckedChange={() => toggleSelect(t.id)} />
-                </td>
-                <td className="p-2">{format(new Date(t.entry_time), "MMM d, yyyy")}</td>
-                <td className="p-2">{t.market ?? "—"}</td>
-                <td className="p-2">
-                  <Badge variant={OUTCOME_VARIANT[t.outcome] ?? "default"}>{t.outcome}</Badge>
-                </td>
-                <td
-                  className={`p-2 tabular-nums font-medium ${
-                    t.result_r > 0 ? "text-[var(--color-success)]" : t.result_r < 0 ? "text-[var(--color-danger)]" : "text-[var(--color-warning)]"
-                  }`}
-                >
-                  {formatR(t.result_r, calcMode, settings?.risk_per_r_percent, settings?.risk_per_r_dollar, { showSign: true })}
-                </td>
-                <td className="p-2">
-                  <div className="flex flex-wrap gap-1">
-                    {variables.slice(0, 2).map((v) => {
-                      const tagged = t.variableValues?.[v.id];
-                      const value = v.values.find((val) => val.id === tagged?.valueId);
-                      if (!value) return null;
-                      return (
-                        <Badge key={v.id} variant="outline">
-                          {value.label}
-                        </Badge>
-                      );
-                    })}
+      <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
+        <div
+          className="grid border-b border-[var(--color-border)] bg-[var(--color-surface)] text-left text-sm text-[var(--color-text-muted)]"
+          style={{ gridTemplateColumns: GRID_COLS }}
+        >
+          <div className="p-2" />
+          {COLUMNS.map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => toggleSort(key)}
+              className="flex cursor-pointer select-none items-center gap-1 p-2 text-left font-medium"
+            >
+              {label} <ArrowUpDown className="h-3 w-3" />
+            </button>
+          ))}
+          <div className="p-2 font-medium">Variables</div>
+        </div>
+
+        {filtered.length === 0 ? (
+          <div className="p-8 text-center text-sm text-[var(--color-text-muted)]">No trades found.</div>
+        ) : (
+          <div ref={scrollRef} className="h-[65vh] overflow-y-auto">
+            <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }}>
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                const t = filtered[virtualRow.index];
+                return (
+                  <div
+                    key={t.id}
+                    className="absolute left-0 top-0 grid w-full cursor-pointer items-center border-b border-[var(--color-border)] text-sm last:border-0 hover:bg-[var(--color-surface)]"
+                    style={{
+                      gridTemplateColumns: GRID_COLS,
+                      height: virtualRow.size,
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                    onClick={() => setActiveTrade(t)}
+                  >
+                    <div className="p-2" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox checked={selected.has(t.id)} onCheckedChange={() => toggleSelect(t.id)} />
+                    </div>
+                    <div className="truncate p-2">{format(new Date(t.entry_time), "MMM d, yyyy")}</div>
+                    <div className="truncate p-2">{t.market ?? "—"}</div>
+                    <div className="p-2">
+                      <Badge variant={OUTCOME_VARIANT[t.outcome] ?? "default"}>{t.outcome}</Badge>
+                    </div>
+                    <div
+                      className={`p-2 tabular-nums font-medium ${
+                        t.result_r > 0
+                          ? "text-[var(--color-success)]"
+                          : t.result_r < 0
+                            ? "text-[var(--color-danger)]"
+                            : "text-[var(--color-warning)]"
+                      }`}
+                    >
+                      {formatR(t.result_r, calcMode, settings?.risk_per_r_percent, settings?.risk_per_r_dollar, { showSign: true })}
+                    </div>
+                    <div className="flex flex-wrap gap-1 overflow-hidden p-2">
+                      {variables.slice(0, 2).map((v) => {
+                        const tagged = t.variableValues?.[v.id];
+                        const value = v.values.find((val) => val.id === tagged?.valueId);
+                        if (!value) return null;
+                        return (
+                          <Badge key={v.id} variant="outline">
+                            {value.label}
+                          </Badge>
+                        );
+                      })}
+                    </div>
                   </div>
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={6} className="p-8 text-center text-[var(--color-text-muted)]">
-                  No trades found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       <TradeDetailModal

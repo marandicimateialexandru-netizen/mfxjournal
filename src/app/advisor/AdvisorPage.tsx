@@ -35,8 +35,22 @@ export default function AdvisorPage() {
   const [mcTrades, setMcTrades] = useState(250);
   const [rollingWindow, setRollingWindow] = useState<"all" | 20 | 50 | 100>("all");
 
-  const historicalR = stats.filteredTrades.map((t) => t.result_r);
+  // Was recreated fresh on every render (a plain `.map()`, no useMemo), which silently broke every
+  // useMemo below that depends on it — they'd see a "changed" array reference and recompute on
+  // every render regardless of whether the underlying trades actually changed, including on
+  // totally unrelated state updates elsewhere on this page.
+  const historicalR = useMemo(() => stats.filteredTrades.map((t) => t.result_r), [stats.filteredTrades]);
 
+  // Tried deferring these two Monte Carlo passes (1000 + 500 simulated paths) into a post-mount
+  // effect so the page could paint before paying for them. That backfired: it made every chart on
+  // this page mount with an empty dataset and then receive real data a moment later, and Recharts'
+  // internal chart-data store doesn't handle that transition cleanly — it went into a genuine
+  // infinite update loop ("Maximum update depth exceeded"), which is a hard crash, strictly worse
+  // than the delay it was meant to fix. Back to computing synchronously with useMemo — the actual
+  // fix for the entrance stall is `historicalR` finally being a stable reference (see above) so
+  // this no longer recomputes on every unrelated render, combined with the nav click in Sidebar
+  // already wrapping the route change in `startTransition`, which is what actually keeps the
+  // *previous* page interactive while this synchronous work happens instead of appearing frozen.
   const monteCarlo = useMemo(() => runMonteCarlo(historicalR, { numTrades: mcTrades, numPaths: 1000 }), [historicalR, mcTrades]);
   const ruinRisk = useMemo(() => {
     const mc = runMonteCarlo(historicalR, { numTrades: 100, numPaths: 500 });
@@ -127,8 +141,15 @@ export default function AdvisorPage() {
               <XAxis dataKey="tradeIndex" tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" />
               <YAxis tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" />
               <Tooltip {...chartTooltipProps} />
-              <Line type="monotone" dataKey="cumulativeR" stroke="var(--color-primary)" dot={false} strokeWidth={2} />
-              <Area type="monotone" dataKey="drawdown" stroke="var(--color-danger)" fill="var(--color-danger)" fillOpacity={0.15} />
+              <Line type="monotone" dataKey="cumulativeR" stroke="var(--color-primary)" dot={false} strokeWidth={2} isAnimationActive={false} />
+              <Area
+                type="monotone"
+                dataKey="drawdown"
+                stroke="var(--color-danger)"
+                fill="var(--color-danger)"
+                fillOpacity={0.15}
+                isAnimationActive={false}
+              />
             </ComposedChart>
           </ResponsiveContainer>
         </CardContent>
@@ -160,7 +181,7 @@ export default function AdvisorPage() {
                   <XAxis dataKey="bin" tick={{ fontSize: 8 }} stroke="var(--color-text-muted)" />
                   <YAxis tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" />
                   <Tooltip {...chartTooltipProps} cursor={false} />
-                  <Bar dataKey="count" fill="var(--color-primary)" />
+                  <Bar dataKey="count" fill="var(--color-primary)" isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -176,7 +197,7 @@ export default function AdvisorPage() {
                   <XAxis dataKey="bin" tick={{ fontSize: 8 }} stroke="var(--color-text-muted)" />
                   <YAxis tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" />
                   <Tooltip {...chartTooltipProps} cursor={false} />
-                  <Bar dataKey="count" fill="var(--color-danger)" />
+                  <Bar dataKey="count" fill="var(--color-danger)" isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -198,7 +219,7 @@ export default function AdvisorPage() {
                 <XAxis dataKey="bin" tick={{ fontSize: 8 }} stroke="var(--color-text-muted)" />
                 <YAxis tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" />
                 <Tooltip {...chartTooltipProps} cursor={false} />
-                <Bar dataKey="count">
+                <Bar dataKey="count" isAnimationActive={false}>
                   {rMultipleHistogram.map((b, i) => (
                     <Cell
                       key={i}
@@ -223,7 +244,14 @@ export default function AdvisorPage() {
                 <XAxis dataKey="tradeIndex" tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" />
                 <YAxis tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" />
                 <Tooltip {...chartTooltipProps} />
-                <Area type="monotone" dataKey="drawdown" stroke="var(--color-danger)" fill="var(--color-danger)" fillOpacity={0.2} />
+                <Area
+                  type="monotone"
+                  dataKey="drawdown"
+                  stroke="var(--color-danger)"
+                  fill="var(--color-danger)"
+                  fillOpacity={0.2}
+                  isAnimationActive={false}
+                />
               </ComposedChart>
             </ResponsiveContainer>
             <div className="grid grid-cols-3 gap-2 pt-2 text-center text-xs">
@@ -269,8 +297,15 @@ export default function AdvisorPage() {
               <XAxis dataKey="tradeIndex" tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" />
               <YAxis tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" />
               <Tooltip {...chartTooltipProps} />
-              <Line type="monotone" dataKey="winRate" stroke="var(--color-primary)" dot={false} name="Win Rate %" />
-              <Line type="monotone" dataKey="expectancy" stroke="var(--color-success)" dot={false} name="Expectancy R" />
+              <Line type="monotone" dataKey="winRate" stroke="var(--color-primary)" dot={false} name="Win Rate %" isAnimationActive={false} />
+              <Line
+                type="monotone"
+                dataKey="expectancy"
+                stroke="var(--color-success)"
+                dot={false}
+                name="Expectancy R"
+                isAnimationActive={false}
+              />
             </ComposedChart>
           </ResponsiveContainer>
         </CardContent>
@@ -287,7 +322,7 @@ export default function AdvisorPage() {
               <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" />
               <YAxis tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" />
               <Tooltip {...chartTooltipProps} cursor={false} />
-              <Bar dataKey="avgR">
+              <Bar dataKey="avgR" isAnimationActive={false}>
                 {edgeMap.map((b, i) => (
                   <Cell
                     key={i}
