@@ -17,7 +17,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { IconBadge } from "@/components/shared/IconBadge";
-import { TradeDetailModal } from "@/features/trades/TradeDetailModal";
+import { TradeFullDetailModal } from "@/features/trades/TradeFullDetailModal";
+import { WeekDetailModal } from "@/features/stats/WeekDetailModal";
 import { cn } from "@/lib/utils";
 import type { Trade } from "@/db/types";
 import type { VariableWithValues } from "@/db/queries/variables";
@@ -55,6 +56,7 @@ export function TradeCalendar({
   const [collapsed, setCollapsed] = useState(false);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [activeTrade, setActiveTrade] = useState<Trade | null>(null);
+  const [activeWeek, setActiveWeek] = useState<Selection | null>(null);
 
   const days = useMemo(() => {
     const start = startOfWeek(startOfMonth(cursor), { weekStartsOn: 1 });
@@ -92,7 +94,7 @@ export function TradeCalendar({
 
   function selectWeek(weekNum: number, weekTrades: Trade[]) {
     if (weekTrades.length === 0) return;
-    setSelection({ label: `Week ${weekNum}`, trades: weekTrades });
+    setActiveWeek({ label: `Week ${weekNum}`, trades: weekTrades });
   }
 
   const selTotalR = selection?.trades.reduce((s, t) => s + t.result_r, 0) ?? 0;
@@ -296,7 +298,7 @@ export function TradeCalendar({
             </div>
 
             <div className="w-full shrink-0 border-t border-[var(--color-border)] pt-4 lg:w-64 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
-              <h4 className="mb-4 text-sm font-bold text-[var(--color-text)]">Select a Day or Week</h4>
+              <h4 className="mb-4 text-sm font-bold text-[var(--color-text)]">Select a Day</h4>
               {!selection ? (
                 <div className="flex flex-col items-center gap-3 py-6 text-center">
                   <div
@@ -305,7 +307,7 @@ export function TradeCalendar({
                   >
                     <MousePointerClick className="h-5 w-5 text-white" />
                   </div>
-                  <p className="text-sm text-[var(--color-text-muted)]">Click on a day or week to see details</p>
+                  <p className="text-sm text-[var(--color-text-muted)]">Click on a day to see details, or a week for the full breakdown</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -357,13 +359,22 @@ export function TradeCalendar({
         </CardContent>
       )}
 
-      <TradeDetailModal
+      <TradeFullDetailModal
         trade={activeTrade}
         trades={selection?.trades ?? []}
         variables={variables}
         onClose={() => setActiveTrade(null)}
         onNavigate={setActiveTrade}
       />
+
+      {activeWeek && (
+        <WeekDetailModal
+          weekLabel={activeWeek.label}
+          trades={activeWeek.trades}
+          variables={variables}
+          onClose={() => setActiveWeek(null)}
+        />
+      )}
     </Card>
   );
 }
