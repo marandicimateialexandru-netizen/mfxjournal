@@ -320,13 +320,25 @@ function ScoreMeter({ score }: { score: number }) {
     const number: HTMLSpanElement = numberEl;
 
     let barWidth = bar.getBoundingClientRect().width;
+    // The last value paint() actually drew — kept so the resize handler below can redraw at the
+    // *current* position instead of only updating barWidth for some future frame that may never
+    // come (the rAF loop stops for good once the entrance animation finishes).
+    let latestValue = 0;
     const resizeObserver = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width;
-      if (width != null) barWidth = width;
+      if (width == null || width === barWidth) return;
+      barWidth = width;
+      // Without this, a width change that happens *after* the one-shot entrance animation has
+      // already finished (window resize, sidebar toggle, the OS restoring a saved window size a
+      // moment after launch, etc.) left the dot's pixel offset stale against the new track width —
+      // it would drift toward the wrong end and visually land on the wrong color of the gradient
+      // underneath it, exactly like a dot that's "off" from both its true position and its color.
+      paint(latestValue);
     });
     resizeObserver.observe(bar);
 
     function paint(value: number) {
+      latestValue = value;
       const pct = Math.max(0, Math.min(100, value));
       const color = scoreColor(pct);
       const x = (pct / 100) * barWidth - 8;
