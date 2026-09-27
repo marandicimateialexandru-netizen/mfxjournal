@@ -13,12 +13,17 @@ import {
   Plus,
   ChevronsLeft,
   ChevronsRight,
+  KeyRound,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo, LogoMark } from "@/components/shared/Logo";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { useUiStore } from "@/store/uiStore";
+import { useAuthStore } from "@/store/authStore";
+import { resetProfilePassword } from "@/db/queries/profiles";
 import { WorkspaceSwitcher } from "@/features/workspace/WorkspaceSwitcher";
 import { useTrades } from "@/features/trades/useTrades";
 import { useCustomResults } from "@/features/variables/useAuxLists";
@@ -97,6 +102,135 @@ function TodayStat({ collapsed }: { collapsed: boolean }) {
         <span className="text-xs text-[var(--color-text-muted)]">{today.winRatePct.toFixed(0)}% WR</span>
       </div>
     </div>
+  );
+}
+
+/** The sidebar footer's account control — shows who's actually logged in (via `useAuthStore`, set by
+ *  the login screen) instead of a hardcoded "Trader" placeholder, and opens a small menu for the two
+ *  things a local account needs: changing your password and logging out (back to the profile
+ *  picker — see `App.tsx`'s effect that watches `currentProfileId` going null). */
+function AccountMenu({ collapsed }: { collapsed: boolean }) {
+  const name = useAuthStore((s) => s.currentProfileName) ?? "Trader";
+  const profileId = useAuthStore((s) => s.currentProfileId);
+  const logout = useAuthStore((s) => s.logout);
+  const [open, setOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  function closeAndReset() {
+    setOpen(false);
+    setResetting(false);
+    setPassword("");
+    setConfirmPassword("");
+    setError(null);
+  }
+
+  async function handleReset() {
+    if (!profileId) return;
+    setError(null);
+    if (password.length < 4) return setError("Password must be at least 4 characters.");
+    if (password !== confirmPassword) return setError("Passwords don't match.");
+    setBusy(true);
+    try {
+      await resetProfilePassword(profileId, password);
+      closeAndReset();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const trigger = (
+    <button className={cn("flex w-full items-center gap-2.5 rounded-lg p-1 transition-colors hover:bg-white/[0.04]", collapsed && "justify-center")}>
+      <div className="relative shrink-0">
+        <div
+          className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white"
+          style={{ background: "linear-gradient(135deg, #a78bfa, #6d28d9)", boxShadow: "0 0 0 1px rgba(139,92,246,0.35), 0 2px 8px -2px rgba(109,40,217,0.6)" }}
+        >
+          {name.trim().charAt(0).toUpperCase()}
+        </div>
+        <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[var(--color-surface)] bg-[var(--color-success)] shadow-[0_0_4px_rgba(52,211,153,0.8)]" />
+      </div>
+      {!collapsed && (
+        <div className="min-w-0 text-left">
+          <div className="truncate text-sm font-medium text-[var(--color-text)]">{name}</div>
+          <div className="text-xs text-[var(--color-text-muted)]">Local account</div>
+        </div>
+      )}
+    </button>
+  );
+
+  return (
+    <Popover open={open} onOpenChange={(v) => (v ? setOpen(true) : closeAndReset())}>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverContent side={collapsed ? "right" : "top"} align="start" className="w-64 space-y-3 p-3">
+        {!resetting ? (
+          <>
+            <div className="flex items-center gap-2 border-b border-[var(--color-border)] pb-2.5">
+              <div
+                className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white"
+                style={{ background: "linear-gradient(135deg, #a78bfa, #6d28d9)" }}
+              >
+                {name.trim().charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold text-[var(--color-text)]">{name}</div>
+                <div className="text-xs text-[var(--color-text-muted)]">Local account</div>
+              </div>
+            </div>
+            <button
+              onClick={() => setResetting(true)}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[var(--color-text)] transition-colors hover:bg-[#8b5cf6]/10"
+            >
+              <KeyRound className="h-4 w-4 text-[#8b5cf6]" /> Reset Password
+            </button>
+            <button
+              onClick={() => {
+                closeAndReset();
+                logout();
+              }}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[var(--color-danger)] transition-colors hover:bg-[var(--color-danger)]/10"
+            >
+              <LogOut className="h-4 w-4" /> Log Out
+            </button>
+          </>
+        ) : (
+          <div className="space-y-2.5">
+            <div className="flex items-center gap-1.5 text-sm font-semibold text-[var(--color-text)]">
+              <KeyRound className="h-4 w-4 text-[#8b5cf6]" /> Reset Password
+            </div>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="New password"
+              className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-2.5 py-1.5 text-sm text-[var(--color-text)] outline-none focus:border-[#8b5cf6]"
+            />
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleReset()}
+              placeholder="Confirm new password"
+              className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-2.5 py-1.5 text-sm text-[var(--color-text)] outline-none focus:border-[#8b5cf6]"
+            />
+            {error && <p className="text-xs text-[var(--color-danger)]">{error}</p>}
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" className="flex-1" onClick={() => setResetting(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" className="flex-1" onClick={handleReset} disabled={busy}>
+                {busy ? "Saving…" : "Save"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -270,23 +404,7 @@ export function Sidebar() {
       </nav>
 
       <div className="border-t border-[var(--color-border)] p-3">
-        <div className={cn("flex items-center gap-2.5", collapsed && "justify-center")}>
-          <div className="relative shrink-0">
-            <div
-              className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white"
-              style={{ background: "linear-gradient(135deg, #a78bfa, #6d28d9)", boxShadow: "0 0 0 1px rgba(139,92,246,0.35), 0 2px 8px -2px rgba(109,40,217,0.6)" }}
-            >
-              T
-            </div>
-            <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[var(--color-surface)] bg-[var(--color-success)] shadow-[0_0_4px_rgba(52,211,153,0.8)]" />
-          </div>
-          {!collapsed && (
-            <div className="min-w-0">
-              <div className="truncate text-sm font-medium text-[var(--color-text)]">Trader</div>
-              <div className="text-xs text-[var(--color-text-muted)]">Local account</div>
-            </div>
-          )}
-        </div>
+        <AccountMenu collapsed={collapsed} />
       </div>
     </aside>
   );

@@ -1,9 +1,21 @@
 -- MFXJournal SQLite schema
 
+-- A local profile is one person sharing this installed copy of the app — logging in picks a
+-- profile, and everything below (workspaces and everything under them) is scoped to it. This is
+-- entirely local: no network account, no cloud sync, just per-person data isolation on one machine.
+CREATE TABLE IF NOT EXISTS profiles (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  password_hash TEXT NOT NULL,
+  password_salt TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS workspaces (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  profile_id TEXT REFERENCES profiles(id)
 );
 
 CREATE TABLE IF NOT EXISTS strategies (
@@ -137,7 +149,12 @@ CREATE TABLE IF NOT EXISTS settings (
   accounts_enabled INTEGER NOT NULL DEFAULT 0,
   streak_analysis_enabled INTEGER NOT NULL DEFAULT 0,
   streak_be_breaks_streak INTEGER NOT NULL DEFAULT 1,
-  variables_card_order TEXT
+  variables_card_order TEXT,
+  ai_provider TEXT NOT NULL DEFAULT 'claude',
+  ollama_model TEXT NOT NULL DEFAULT 'llama3.1',
+  ollama_base_url TEXT NOT NULL DEFAULT 'http://localhost:11434',
+  groq_api_key TEXT,
+  groq_model TEXT NOT NULL DEFAULT 'openai/gpt-oss-120b'
 );
 
 CREATE TABLE IF NOT EXISTS variable_templates (

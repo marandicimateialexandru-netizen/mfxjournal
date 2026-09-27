@@ -24,6 +24,12 @@ const COLUMN_MIGRATIONS: { table: string; column: string; ddl: string }[] = [
   { table: "settings", column: "variables_card_order", ddl: "ALTER TABLE settings ADD COLUMN variables_card_order TEXT" },
   { table: "custom_combinations", column: "display_settings", ddl: "ALTER TABLE custom_combinations ADD COLUMN display_settings TEXT" },
   { table: "trade_screenshots", column: "label", ddl: "ALTER TABLE trade_screenshots ADD COLUMN label TEXT" },
+  { table: "settings", column: "ai_provider", ddl: "ALTER TABLE settings ADD COLUMN ai_provider TEXT NOT NULL DEFAULT 'claude'" },
+  { table: "settings", column: "ollama_model", ddl: "ALTER TABLE settings ADD COLUMN ollama_model TEXT NOT NULL DEFAULT 'llama3.1'" },
+  { table: "settings", column: "ollama_base_url", ddl: "ALTER TABLE settings ADD COLUMN ollama_base_url TEXT NOT NULL DEFAULT 'http://localhost:11434'" },
+  { table: "settings", column: "groq_api_key", ddl: "ALTER TABLE settings ADD COLUMN groq_api_key TEXT" },
+  { table: "settings", column: "groq_model", ddl: "ALTER TABLE settings ADD COLUMN groq_model TEXT NOT NULL DEFAULT 'llama-3.3-70b-versatile'" },
+  { table: "workspaces", column: "profile_id", ddl: "ALTER TABLE workspaces ADD COLUMN profile_id TEXT REFERENCES profiles(id)" },
 ];
 
 async function migrateColumns(db: Database): Promise<void> {

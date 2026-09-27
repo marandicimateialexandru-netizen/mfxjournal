@@ -33,6 +33,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { ImageLightbox } from "@/components/shared/ImageLightbox";
+import { DateTimePicker } from "@/components/shared/DateTimePicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -430,12 +431,22 @@ export function AddTradeModal() {
                 <Label className="flex items-center gap-1">
                   <FieldIcon icon={Calendar} /> Entry Date & Time
                 </Label>
-                <Input type="datetime-local" {...register("entry_time")} />
+                <Controller
+                  name="entry_time"
+                  control={control}
+                  render={({ field }) => <DateTimePicker value={field.value} onChange={field.onChange} />}
+                />
                 {errors.entry_time && <p className="text-xs text-[var(--color-danger)]">{errors.entry_time.message}</p>}
                 <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
                   <input type="checkbox" {...register("hasEndDate")} /> Add end date
                 </label>
-                {hasEndDate && <Input type="datetime-local" {...register("end_time")} />}
+                {hasEndDate && (
+                  <Controller
+                    name="end_time"
+                    control={control}
+                    render={({ field }) => <DateTimePicker value={field.value ?? ""} onChange={field.onChange} placeholder="Select end date & time" />}
+                  />
+                )}
               </div>
 
               <div className="space-y-1.5">

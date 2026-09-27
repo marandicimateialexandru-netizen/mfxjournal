@@ -21,6 +21,7 @@ import { useWorkspaceStore } from "@/store/workspaceStore";
 import { THEME_PRESETS } from "@/features/theming/presets";
 import { applyTheme } from "@/features/theming/applyTheme";
 import { testApiKey } from "@/features/ai/aiClient";
+import { testGroqKey } from "@/features/ai/groqClient";
 import { countTestTrades, deleteTestTrades } from "@/db/seed";
 import type { CustomColors, CalcMode } from "@/db/types";
 import { useQueryClient } from "@tanstack/react-query";
@@ -62,6 +63,9 @@ export default function SettingsPage() {
   const [apiKeyDraft, setApiKeyDraft] = useState("");
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [testing, setTesting] = useState(false);
+  const [groqKeyDraft, setGroqKeyDraft] = useState("");
+  const [groqTestResult, setGroqTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [groqTesting, setGroqTesting] = useState(false);
   const [seedCount, setSeedCount] = useState<number | null>(null);
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
   const [customColors, setCustomColors] = useState<CustomColors | null>(
@@ -86,6 +90,13 @@ export default function SettingsPage() {
     const result = await testApiKey(apiKeyDraft || settings!.ai_api_key || "");
     setTestResult(result);
     setTesting(false);
+  }
+
+  async function handleTestGroqConnection() {
+    setGroqTesting(true);
+    const result = await testGroqKey(groqKeyDraft || settings!.groq_api_key || "", settings!.groq_model);
+    setGroqTestResult(result);
+    setGroqTesting(false);
   }
 
   async function handleExport() {
@@ -279,6 +290,114 @@ export default function SettingsPage() {
             <p className="flex items-center gap-1 text-xs text-[var(--color-text-muted)]">
               <Info className="h-3 w-3" /> Stored locally only, never sent anywhere but Anthropic's API.
             </p>
+          </div>
+
+          <div className="space-y-2 border-t border-[var(--color-border)] pt-3">
+            <Label>MFX AI Assistant Engine</Label>
+            <p className="text-xs text-[var(--color-text-muted)]">
+              Only affects the chat on the AI Advisor page — Task Assistant, Mindset Coach, and Voice Input above always use the
+              Anthropic key.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant={settings.ai_provider === "claude" ? "default" : "outline"}
+                size="sm"
+                onClick={() => updateSettings.mutate({ ai_provider: "claude" })}
+              >
+                Claude (paid, best quality)
+              </Button>
+              <Button
+                variant={settings.ai_provider === "groq" ? "default" : "outline"}
+                size="sm"
+                onClick={() => updateSettings.mutate({ ai_provider: "groq" })}
+              >
+                Groq (free, cloud)
+              </Button>
+              <Button
+                variant={settings.ai_provider === "ollama" ? "default" : "outline"}
+                size="sm"
+                onClick={() => updateSettings.mutate({ ai_provider: "ollama" })}
+              >
+                Local / Free (Ollama)
+              </Button>
+            </div>
+            {settings.ai_provider === "groq" && (
+              <div className="space-y-2 rounded-md border border-[var(--color-border)] p-3">
+                <p className="text-xs text-[var(--color-text-muted)]">
+                  Free, no credit card, no local install — just a one-time signup:
+                </p>
+                <ol className="list-inside list-decimal space-y-0.5 text-xs text-[var(--color-text-muted)]">
+                  <li>
+                    Go to <span className="text-[var(--color-text)]">console.groq.com</span> and sign up (Google/GitHub login works).
+                  </li>
+                  <li>Open "API Keys" in the left sidebar and click "Create API Key."</li>
+                  <li>Copy the key (starts with "gsk_") and paste it below.</li>
+                </ol>
+                <div className="flex gap-2 pt-1">
+                  <Input
+                    type="password"
+                    placeholder={settings.groq_api_key ? "••••••••••••••••" : "gsk_…"}
+                    value={groqKeyDraft}
+                    onChange={(e) => setGroqKeyDraft(e.target.value)}
+                  />
+                  <Button
+                    variant="secondary"
+                    onClick={async () => {
+                      await updateSettings.mutateAsync({ groq_api_key: groqKeyDraft || settings.groq_api_key });
+                    }}
+                  >
+                    Save
+                  </Button>
+                  <Button variant="outline" onClick={handleTestGroqConnection} disabled={groqTesting}>
+                    {groqTesting ? "Testing…" : "Test Connection"}
+                  </Button>
+                </div>
+                {groqTestResult && (
+                  <p className={`text-xs ${groqTestResult.ok ? "text-[var(--color-success)]" : "text-[var(--color-danger)]"}`}>
+                    {groqTestResult.message}
+                  </p>
+                )}
+                <div className="space-y-1.5 pt-1">
+                  <Label className="text-xs">Model name</Label>
+                  <Input
+                    defaultValue={settings.groq_model}
+                    onBlur={(e) => updateSettings.mutate({ groq_model: e.target.value || "openai/gpt-oss-120b" })}
+                    placeholder="openai/gpt-oss-120b"
+                  />
+                </div>
+                <p className="flex items-start gap-1 text-xs text-[var(--color-text-muted)]">
+                  <Info className="mt-0.5 h-3 w-3 shrink-0" /> If a model stops working, Groq occasionally retires old ones — check
+                  "Models" in your Groq console for the current name and update it above.
+                </p>
+              </div>
+            )}
+            {settings.ai_provider === "ollama" && (
+              <div className="space-y-2 rounded-md border border-[var(--color-border)] p-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Model name</Label>
+                    <Input
+                      defaultValue={settings.ollama_model}
+                      onBlur={(e) => updateSettings.mutate({ ollama_model: e.target.value || "llama3.1" })}
+                      placeholder="llama3.1"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Ollama URL</Label>
+                    <Input
+                      defaultValue={settings.ollama_base_url}
+                      onBlur={(e) => updateSettings.mutate({ ollama_base_url: e.target.value || "http://localhost:11434" })}
+                      placeholder="http://localhost:11434"
+                    />
+                  </div>
+                </div>
+                <p className="flex items-start gap-1 text-xs text-[var(--color-text-muted)]">
+                  <Info className="mt-0.5 h-3 w-3 shrink-0" /> Free and fully offline, but runs on your own machine's hardware —
+                  install Ollama from ollama.com, then run <code className="rounded bg-[var(--color-background)] px-1">ollama pull{" "}
+                  {settings.ollama_model || "llama3.1"}</code>. Quality won't match Claude, especially for nuanced pattern analysis.
+                </p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

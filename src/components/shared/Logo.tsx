@@ -4,9 +4,14 @@ import { useId } from "react";
  *  into a winning green candle. Same source design used to generate the actual app/taskbar icon
  *  (see `design/logo-mark.svg`), so the icon in the OS taskbar and the one rendered here in the UI
  *  are the same logo, not two different ones. Uses `useId` for the gradient/glow defs so multiple
- *  instances on one page (sidebar + splash, say) never collide over a shared `id="bg"`. */
-export function LogoMark({ size = 28 }: { size?: number }) {
+ *  instances on one page (sidebar + splash, say) never collide over a shared `id="bg"`.
+ *
+ *  `animated` (opt-in, used by the boot intro) reveals the mark piece by piece — pages, spine, then
+ *  each candlestick in turn — instead of drawing the whole logo at once, driven by the same geometry
+ *  as the static mark so the intro and every other place this renders can never drift apart. */
+export function LogoMark({ size = 28, animated = false }: { size?: number; animated?: boolean }) {
   const uid = useId();
+  const piece = (delayMs: number) => (animated ? { className: "animate-logo-piece-in", style: { animationDelay: `${delayMs}ms` } } : {});
   const bg = `${uid}-bg`;
   const pageL = `${uid}-pageL`;
   const pageR = `${uid}-pageR`;
@@ -41,33 +46,47 @@ export function LogoMark({ size = 28 }: { size?: number }) {
       <rect x="0" y="0" width="512" height="512" rx="116" fill={`url(#${bg})`} />
       <rect x="0" y="0" width="512" height="512" rx="116" fill={`url(#${glow})`} />
 
-      {/* Open journal: two pages fanning from a center spine */}
-      <path
-        d="M256,168 C 214,142 168,130 132,127 C 120,126 111,135 111,147 L111,338 C 111,349 120,357 132,358 C 168,361 214,372 256,396 Z"
-        fill={`url(#${pageL})`}
-      />
-      <path
-        d="M256,168 C 298,142 344,130 380,127 C 392,126 401,135 401,147 L401,338 C 401,349 392,357 380,358 C 344,361 298,372 256,396 Z"
-        fill={`url(#${pageR})`}
-      />
+      <g className={animated ? "animate-logo-unite-pulse" : undefined} style={animated ? { animationDelay: "950ms" } : undefined}>
+        {/* Open journal: two pages fanning from a center spine */}
+        <g {...piece(0)}>
+          <path
+            d="M256,168 C 214,142 168,130 132,127 C 120,126 111,135 111,147 L111,338 C 111,349 120,357 132,358 C 168,361 214,372 256,396 Z"
+            fill={`url(#${pageL})`}
+          />
+          <path
+            d="M256,168 C 298,142 344,130 380,127 C 392,126 401,135 401,147 L401,338 C 401,349 392,357 380,358 C 344,361 298,372 256,396 Z"
+            fill={`url(#${pageR})`}
+          />
+        </g>
 
-      <path d="M256,168 L256,396" stroke="#4c1d95" strokeOpacity="0.28" strokeWidth="7" strokeLinecap="round" />
+        <g {...piece(150)}>
+          <path d="M256,168 L256,396" stroke="#4c1d95" strokeOpacity="0.28" strokeWidth="7" strokeLinecap="round" />
+        </g>
 
-      {/* Journal rule lines */}
-      <path d="M138,180 L214,196" stroke="#c4b5fd" strokeOpacity="0.85" strokeWidth="6" strokeLinecap="round" />
-      <path d="M136,210 L212,224" stroke="#c4b5fd" strokeOpacity="0.7" strokeWidth="6" strokeLinecap="round" />
-      <path d="M298,196 L374,180" stroke="#c4b5fd" strokeOpacity="0.85" strokeWidth="6" strokeLinecap="round" />
-      <path d="M300,224 L376,210" stroke="#c4b5fd" strokeOpacity="0.7" strokeWidth="6" strokeLinecap="round" />
+        {/* Journal rule lines */}
+        <g {...piece(280)}>
+          <path d="M138,180 L214,196" stroke="#c4b5fd" strokeOpacity="0.85" strokeWidth="6" strokeLinecap="round" />
+          <path d="M136,210 L212,224" stroke="#c4b5fd" strokeOpacity="0.7" strokeWidth="6" strokeLinecap="round" />
+          <path d="M298,196 L374,180" stroke="#c4b5fd" strokeOpacity="0.85" strokeWidth="6" strokeLinecap="round" />
+          <path d="M300,224 L376,210" stroke="#c4b5fd" strokeOpacity="0.7" strokeWidth="6" strokeLinecap="round" />
+        </g>
 
-      {/* Candlesticks ascending across the open pages */}
-      <line x1="196" y1="248" x2="196" y2="322" stroke="#7c3aed" strokeOpacity="0.55" strokeWidth="9" strokeLinecap="round" />
-      <rect x="182" y="264" width="28" height="46" rx="6" fill="#7c3aed" fillOpacity="0.55" />
+        {/* Candlesticks ascending across the open pages, arriving one at a time */}
+        <g {...piece(420)}>
+          <line x1="196" y1="248" x2="196" y2="322" stroke="#7c3aed" strokeOpacity="0.55" strokeWidth="9" strokeLinecap="round" />
+          <rect x="182" y="264" width="28" height="46" rx="6" fill="#7c3aed" fillOpacity="0.55" />
+        </g>
 
-      <line x1="256" y1="210" x2="256" y2="330" stroke="#6d28d9" strokeWidth="10" strokeLinecap="round" />
-      <rect x="240" y="232" width="32" height="76" rx="7" fill="#6d28d9" />
+        <g {...piece(570)}>
+          <line x1="256" y1="210" x2="256" y2="330" stroke="#6d28d9" strokeWidth="10" strokeLinecap="round" />
+          <rect x="240" y="232" width="32" height="76" rx="7" fill="#6d28d9" />
+        </g>
 
-      <line x1="316" y1="168" x2="316" y2="316" stroke="#34d399" strokeWidth="11" strokeLinecap="round" />
-      <rect x="298" y="185" width="36" height="115" rx="8" fill={`url(#${win})`} />
+        <g {...piece(720)}>
+          <line x1="316" y1="168" x2="316" y2="316" stroke="#34d399" strokeWidth="11" strokeLinecap="round" />
+          <rect x="298" y="185" width="36" height="115" rx="8" fill={`url(#${win})`} />
+        </g>
+      </g>
     </svg>
   );
 }

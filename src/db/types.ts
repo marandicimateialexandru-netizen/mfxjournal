@@ -7,6 +7,17 @@ export interface Workspace {
   id: string;
   name: string;
   created_at: string;
+  profile_id: string | null;
+}
+
+/** A local login profile — one person sharing this installed copy of the app. Entirely local: the
+ *  password just gates access to that person's workspaces on this machine, there's no server. */
+export interface Profile {
+  id: string;
+  name: string;
+  password_hash: string;
+  password_salt: string;
+  created_at: string;
 }
 
 export interface Strategy {
@@ -187,4 +198,10 @@ export interface Settings {
   streak_analysis_enabled: number;
   streak_be_breaks_streak: number;
   variables_card_order: string | null; // JSON-serialized string[] of card keys
+  /** Which backend the MFX AI Assistant talks to: Anthropic's paid API, a free local Ollama model, or Groq's free cloud API. */
+  ai_provider: "claude" | "ollama" | "groq";
+  ollama_model: string;
+  ollama_base_url: string;
+  groq_api_key: string | null;
+  groq_model: string;
 }
