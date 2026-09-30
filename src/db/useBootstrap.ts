@@ -7,21 +7,26 @@ import { useUiStore } from "@/store/uiStore";
 import { applyTheme } from "@/features/theming/applyTheme";
 import { getPersistedWorkspaceId, setPersistedWorkspaceId } from "@/lib/activeWorkspace";
 
-export function useAppBootstrap() {
+/** Runs once a profile is logged in — everything here (which workspace, its settings/theme, seed
+ *  data) is scoped to that profile's own `profile_id`, so two people sharing this install never see
+ *  each other's workspaces even momentarily during boot. */
+export function useAppBootstrap(profileId: string | null) {
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const setWorkspace = useWorkspaceStore((s) => s.setWorkspace);
   const setCalcMode = useUiStore((s) => s.setCalcMode);
 
   useEffect(() => {
+    if (!profileId) return;
     let cancelled = false;
+    setIsReady(false);
     (async () => {
       try {
-        const all = await listWorkspaces();
-        const persistedId = getPersistedWorkspaceId();
+        const all = await listWorkspaces(profileId);
+        const persistedId = getPersistedWorkspaceId(profileId);
         const persisted = persistedId ? all.find((w) => w.id === persistedId) : undefined;
-        const workspace = persisted ?? (await ensureDefaultWorkspace());
-        setPersistedWorkspaceId(workspace.id);
+        const workspace = persisted ?? (await ensureDefaultWorkspace(profileId));
+        setPersistedWorkspaceId(profileId, workspace.id);
         await seedIfEmpty(workspace.id);
         const settings = await getSettings(workspace.id);
         if (cancelled) return;
@@ -38,7 +43,7 @@ export function useAppBootstrap() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [profileId]);
 
   return { isReady, error };
 }

@@ -193,7 +193,7 @@ export default function DashboardPage() {
         </DropdownMenu>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4" data-tour="dashboard-stats">
         <StatTile
           label="Total Trades"
           value={String(stats.totalTrades)}
@@ -282,7 +282,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3" data-tour="dashboard-equity">
         <EquityCurveChart equityCurve={stats.equityCurve} totalR={stats.totalR} maxDrawdownR={stats.maxDrawdownR} />
 
         <AccentCard tone="violet" icon={GaugeIcon} title="App Score" subtitle="Composite performance rating">
@@ -290,7 +290,7 @@ export default function DashboardPage() {
         </AccentCard>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3" data-tour="dashboard-charts">
         <AccentCard tone="teal" icon={PieChartIcon} title="Outcome Distribution" subtitle="Wins · losses · breakevens" contentClassName="h-52 px-4 pb-4">
           <OutcomeDonut wins={stats.wins} losses={stats.losses} bes={stats.breakEvens} total={stats.totalTrades} />
         </AccentCard>
@@ -405,7 +405,9 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <TradeCalendar trades={filteredTradesForSearch} variables={variables} />
+      <div data-tour="dashboard-calendar">
+        <TradeCalendar trades={filteredTradesForSearch} variables={variables} />
+      </div>
     </div>
   );
 }

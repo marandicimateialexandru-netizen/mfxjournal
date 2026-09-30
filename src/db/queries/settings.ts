@@ -16,6 +16,11 @@ const DEFAULTS: Omit<Settings, "workspace_id"> = {
   streak_analysis_enabled: 0,
   streak_be_breaks_streak: 1,
   variables_card_order: null,
+  ai_provider: "claude",
+  ollama_model: "llama3.1",
+  ollama_base_url: "http://localhost:11434",
+  groq_api_key: null,
+  groq_model: "llama-3.3-70b-versatile",
 };
 
 export async function getSettings(workspaceId: string): Promise<Settings> {
@@ -25,8 +30,8 @@ export async function getSettings(workspaceId: string): Promise<Settings> {
   if (rows.length > 0) return { ...DEFAULTS, ...rows[0] };
   const settings: Settings = { workspace_id: workspaceId, ...DEFAULTS };
   await execute(
-    `INSERT INTO settings (workspace_id, theme, custom_colors, calc_mode, risk_per_r_percent, risk_per_r_dollar, day_win_be_range, ai_api_key, ai_task_assistant_enabled, mindset_coach_enabled, voice_input_enabled, accounts_enabled, streak_analysis_enabled, streak_be_breaks_streak, variables_card_order)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO settings (workspace_id, theme, custom_colors, calc_mode, risk_per_r_percent, risk_per_r_dollar, day_win_be_range, ai_api_key, ai_task_assistant_enabled, mindset_coach_enabled, voice_input_enabled, accounts_enabled, streak_analysis_enabled, streak_be_breaks_streak, variables_card_order, ai_provider, ollama_model, ollama_base_url, groq_api_key, groq_model)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       settings.workspace_id,
       settings.theme,
@@ -43,6 +48,11 @@ export async function getSettings(workspaceId: string): Promise<Settings> {
       settings.streak_analysis_enabled,
       settings.streak_be_breaks_streak,
       settings.variables_card_order,
+      settings.ai_provider,
+      settings.ollama_model,
+      settings.ollama_base_url,
+      settings.groq_api_key,
+      settings.groq_model,
     ],
   );
   return settings;
@@ -55,7 +65,7 @@ export async function updateSettings(
   const current = await getSettings(workspaceId);
   const merged = { ...current, ...patch };
   await execute(
-    `UPDATE settings SET theme = ?, custom_colors = ?, calc_mode = ?, risk_per_r_percent = ?, risk_per_r_dollar = ?, day_win_be_range = ?, ai_api_key = ?, ai_task_assistant_enabled = ?, mindset_coach_enabled = ?, voice_input_enabled = ?, accounts_enabled = ?, streak_analysis_enabled = ?, streak_be_breaks_streak = ?, variables_card_order = ?
+    `UPDATE settings SET theme = ?, custom_colors = ?, calc_mode = ?, risk_per_r_percent = ?, risk_per_r_dollar = ?, day_win_be_range = ?, ai_api_key = ?, ai_task_assistant_enabled = ?, mindset_coach_enabled = ?, voice_input_enabled = ?, accounts_enabled = ?, streak_analysis_enabled = ?, streak_be_breaks_streak = ?, variables_card_order = ?, ai_provider = ?, ollama_model = ?, ollama_base_url = ?, groq_api_key = ?, groq_model = ?
      WHERE workspace_id = ?`,
     [
       merged.theme,
@@ -72,6 +82,11 @@ export async function updateSettings(
       merged.streak_analysis_enabled,
       merged.streak_be_breaks_streak,
       merged.variables_card_order,
+      merged.ai_provider,
+      merged.ollama_model,
+      merged.ollama_base_url,
+      merged.groq_api_key,
+      merged.groq_model,
       workspaceId,
     ],
   );

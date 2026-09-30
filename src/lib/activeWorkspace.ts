@@ -1,16 +1,18 @@
-const KEY = "mfxjournal:activeWorkspaceId";
+const KEY_PREFIX = "mfxjournal:activeWorkspaceId:";
 
-export function getPersistedWorkspaceId(): string | null {
+/** Namespaced per profile — different people sharing this install must never inherit each other's
+ *  last-active workspace. */
+export function getPersistedWorkspaceId(profileId: string): string | null {
   try {
-    return localStorage.getItem(KEY);
+    return localStorage.getItem(KEY_PREFIX + profileId);
   } catch {
     return null;
   }
 }
 
-export function setPersistedWorkspaceId(id: string): void {
+export function setPersistedWorkspaceId(profileId: string, id: string): void {
   try {
-    localStorage.setItem(KEY, id);
+    localStorage.setItem(KEY_PREFIX + profileId, id);
   } catch {
     // ignore (private browsing / storage disabled)
   }

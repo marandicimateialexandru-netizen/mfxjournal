@@ -52,6 +52,7 @@ import { useTrades } from "@/features/trades/useTrades";
 import { useWorkspaceStore } from "@/store/workspaceStore";
 import { timeOfDayBuckets } from "@/features/stats/pseudoVariables";
 import { applyTemplate, buildTemplateDataFromVariables, type TemplateMapping } from "@/features/variables/applyTemplate";
+import { ignoreTourOutsideClicks } from "@/features/tour/ignoreTourOutsideClicks";
 import type { VariableType, VariableValue, Trade, CustomResult, Settings } from "@/db/types";
 import type { VariableWithValues } from "@/db/queries/variables";
 
@@ -391,20 +392,22 @@ export default function VariablesPage() {
           Clear Variables
         </Button>
         <div className="flex-1" />
-        <Button size="sm" onClick={() => setNewVarOpen(true)}>
+        <Button size="sm" data-tour="new-variable-button" onClick={() => setNewVarOpen(true)}>
           <Plus className="h-4 w-4" /> New Variable
         </Button>
       </div>
 
       <DndContext sensors={cardSensors} collisionDetection={closestCenter} onDragEnd={handleCardDragEnd}>
         <SortableContext items={cardOrder} strategy={rectSortingStrategy}>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{cardOrder.map(renderCard)}</div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" data-tour="variables-grid">
+            {cardOrder.map(renderCard)}
+          </div>
         </SortableContext>
       </DndContext>
 
       {/* Create New Variable */}
       <Dialog open={newVarOpen} onOpenChange={setNewVarOpen}>
-        <DialogContent>
+        <DialogContent data-tour="new-variable-dialog" onInteractOutside={ignoreTourOutsideClicks}>
           <DialogHeader>
             <DialogTitle>New Variable</DialogTitle>
           </DialogHeader>

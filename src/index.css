@@ -119,6 +119,24 @@ body {
   animation: radarPopIn 0.4s ease-out both;
 }
 
+/* The Outcome Donut's center label swap (total trades <-> a hovered segment's count/name) — a quick
+   scale-in-from-slightly-small with a small spring overshoot, retriggered by mounting a fresh element
+   (keyed by the current hovered segment) rather than trying to animate between two different pieces
+   of text, which CSS has no clean way to crossfade. */
+@keyframes donutCenterPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.animate-donut-center-pop {
+  animation: donutCenterPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
 /* A one-shot "sonar ping" ring expanding out from the radar's center, timed to land right as the
    web finishes drawing itself in (see the animationDuration on <Radar>) — plays once and stops
    (no loop), so unlike the equity curve's old pulsing end-dot this can't turn into a persistent
@@ -156,6 +174,593 @@ body {
 .animate-dot-pulse {
   animation: dotLandPulse 700ms ease-out both;
   animation-delay: 1300ms;
+}
+
+/* A chat bubble's one-time entrance — plays once per mount (each new message is a fresh DOM node),
+   never loops, so a long conversation never turns into a wall of flickering elements. */
+@keyframes chatBubbleIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.animate-chat-bubble-in {
+  animation: chatBubbleIn 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* The AI Assistant's "thinking" indicator — three dots bouncing in sequence via staggered
+   animation-delay on each dot (set inline per-dot), loops for as long as the request is in flight. */
+@keyframes thinkingDotBounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+  30% {
+    transform: translateY(-5px);
+    opacity: 1;
+  }
+}
+.animate-thinking-dot {
+  animation: thinkingDotBounce 1.05s ease-in-out infinite;
+}
+
+/* A follow-up suggestion chip's entrance — a springy overshoot ("pop"), distinct from the calmer
+   chat-bubble fade, and staggered per-chip via inline animation-delay so they arrive one at a time
+   rather than all at once. */
+@keyframes chipPopIn {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.75);
+  }
+  65% {
+    opacity: 1;
+    transform: translateY(0) scale(1.06);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+.animate-chip-pop {
+  animation: chipPopIn 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* The AI Assistant header's one-time "power on" ring — an expanding, fading ring behind the logo
+   mark that plays once on mount, same "plays once, then stays still" principle as the app score
+   meter's dot pulse. Purely transform/opacity, so it's cheap even layered behind an SVG. */
+@keyframes logoPowerRing {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+.animate-logo-power-ring {
+  animation: logoPowerRing 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 150ms;
+}
+
+/* The AI Assistant's idle "waiting to be started" breathing ring — loops gently on the start screen,
+   distinct from the one-shot power-on ring that plays once the trader actually clicks Start. */
+@keyframes logoIdlePulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(1.18);
+    opacity: 0.65;
+  }
+}
+.animate-logo-idle-pulse {
+  animation: logoIdlePulse 2.4s ease-in-out infinite;
+}
+
+/* A sent message slides in from the right (it's leaving the trader's side), a received one slides in
+   from the left (it's arriving from the assistant) — giving "send" and "receive" distinct motion
+   instead of every bubble using the same generic entrance. */
+@keyframes bubbleInRight {
+  from {
+    opacity: 0;
+    transform: translateX(16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+.animate-bubble-in-right {
+  animation: bubbleInRight 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes bubbleInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+.animate-bubble-in-left {
+  animation: bubbleInLeft 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* The Pattern Explorer's per-card entrance when stepping to a new pattern — plays once each time the
+   active index changes (a fresh key remounts the card), giving "flipping to the next card" motion. */
+@keyframes patternCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.animate-pattern-card-in {
+  animation: patternCardIn 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* The AI Assistant's boot screen exit, played once on clicking Start (see `handleStart` in
+   MfxAiAssistant.tsx) — turns what used to be an instant jump-cut to the chat into an actual
+   transition: the boot screen shrinks and fades while the chat mounts underneath already mid-flight
+   through its own entrance animations. */
+@keyframes startScreenOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+.animate-start-screen-out {
+  animation: startScreenOut 260ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+/* The boot screen's multi-stage exit, replacing the old single uniform fade: the button and copy
+   leave first with a quick upward fade, THEN the dot-grid/gradient backdrop does a cinematic "iris
+   close" collapsing to a point at the logo (a camera-shutter-closing effect via `clip-path`, not
+   `filter: blur()` — cheap, GPU-composited, no layout cost), and the logo itself shrinks into that
+   same point right as it disappears — so the two screens feel like one continuous shot instead of a
+   jump-cut between unrelated layouts. */
+@keyframes bootCopyExit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+.animate-boot-copy-exit {
+  animation: bootCopyExit 220ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+@keyframes irisClose {
+  from {
+    clip-path: circle(120% at 50% 38%);
+    opacity: 1;
+  }
+  to {
+    clip-path: circle(0% at 50% 38%);
+    opacity: 0.4;
+  }
+}
+.animate-iris-close {
+  animation: irisClose 420ms cubic-bezier(0.6, 0, 0.9, 0.2) both;
+  animation-delay: 160ms;
+}
+
+@keyframes bootLogoExit {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  60% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+}
+.animate-boot-logo-exit {
+  animation: bootLogoExit 420ms cubic-bezier(0.6, 0, 0.9, 0.2) both;
+  animation-delay: 160ms;
+}
+
+/* A brief light flash right as the chat mounts underneath the closing iris — papers over the exact
+   DOM-swap frame so the transition never shows a blank beat between the two screens. */
+@keyframes mountFlash {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.animate-mount-flash {
+  animation: mountFlash 380ms ease-out both;
+}
+
+/* The boot intro's logo build-up (see `LogoMark`'s `animated` prop) — each group (pages, spine, rule
+   lines, each candlestick) pops in on its own stagger via `transform-box: fill-box` so the scale
+   animates from THAT piece's own center, not the whole 512-unit SVG canvas's center. */
+@keyframes logoPieceIn {
+  from {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.animate-logo-piece-in {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: logoPieceIn 380ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* A single bright pulse once every piece has landed — the "and then uniting it" moment. */
+@keyframes logoUnitePulse {
+  0% {
+    filter: brightness(1);
+    transform: scale(1);
+  }
+  40% {
+    filter: brightness(1.35);
+    transform: scale(1.045);
+  }
+  100% {
+    filter: brightness(1);
+    transform: scale(1);
+  }
+}
+.animate-logo-unite-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: logoUnitePulse 550ms ease-out both;
+}
+
+/* Every decorative piece on the auth backdrop (see `AuthBackdrop.tsx`) rises straight up off-screen on
+   a continuous loop, with a gentle side-to-side sway (`--walk-x`) — NO opacity fade at all. Each
+   element's base position (`AuthBackdrop.tsx`'s `riseTop`/`riseBottom`) already sits just past the
+   visible bottom edge, and the travel distance here (`-160vh`) is comfortably more than one screen's
+   worth, so by the time each 0%→100% lap finishes it's fully clipped above the top edge — the loop's
+   instant reset back to 0% therefore always happens while completely invisible, never a visible
+   pop/snap. Combined with each element's own random NEGATIVE `animation-delay` (see `randomRise`),
+   every element renders already mid-rise at a random point in its cycle from the very first frame,
+   so the whole field reads as one continuously-running loop rather than icons fading/popping into
+   existence. */
+@keyframes authWalkDrift {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(var(--walk-x, 0px), -160vh);
+  }
+}
+.animate-auth-walk {
+  animation: authWalkDrift var(--walk-duration, 14s) linear infinite;
+}
+
+/* Small particle dots use the same rise, just faster, so they read as quicker "data motes" against
+   the slower-rising bigger glyphs — same no-fade, off-screen-start, negative-delay approach. */
+@keyframes authParticleDrift {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(14px, -160vh);
+  }
+}
+.animate-auth-particle {
+  animation: authParticleDrift 6s linear infinite;
+}
+
+/* The one-time "repopulating" fade used only right after the Big Bang flash, when the backdrop needs
+   to fill back in — deliberately ONLY touches opacity, never transform, so it can run concurrently
+   with an element's own already-running `authWalkDrift`/`authParticleDrift` position animation
+   (comma-separated in the same `animation` shorthand, set inline per-element in `AuthBackdrop.tsx`'s
+   "revealing" mode) without the two fighting over the same property. Each element gets its own random
+   `animation-delay`, so icons visibly pop back into view one at a time rather than the whole field
+   reappearing as a single block. */
+@keyframes authReappear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* The login card's exit once the password is accepted — swipes up and fades instead of the screen
+   just cutting straight to the next stage. */
+/* The login card's exit once a login/create/reset actually succeeds — a quick bright "pop" (scale up,
+   brighten) immediately followed by a rapid implosion to nothing, like it's being sucked away in a
+   flash of light — replacing a plain swipe-up-and-fade, which read as a boring UI transition rather
+   than a "something big is about to happen" moment. */
+@keyframes cardPopVanish {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+    filter: brightness(1);
+  }
+  28% {
+    transform: scale(1.07);
+    opacity: 1;
+    filter: brightness(1.35);
+  }
+  100% {
+    transform: scale(0.15);
+    opacity: 0;
+    filter: brightness(2.4);
+  }
+}
+.animate-card-pop-vanish {
+  animation: cardPopVanish 420ms cubic-bezier(0.55, 0, 0.85, 0.35) both;
+}
+
+/* The "gravitational pull" moment right after login: EVERY glyph individually drifts toward roughly
+   the center — like loose debris actually getting pulled in, not a controlled group effect. Each
+   element's `--center-dx`/`--center-dy` (set inline in `AuthBackdrop.tsx`) already bakes in its own
+   random landing jitter, so it settles somewhere NEAR the center, not exactly on the same pixel as
+   every other element, and `--tumble` is a per-element random rotation (some clockwise, some counter,
+   different amounts) instead of one uniform spin for the whole field — together these are what make it
+   read as scattered, uncontrolled pieces rather than a single choreographed shape. Each element's own
+   `animation-delay` (based on its distance from center — see `AuthBackdrop.tsx`) makes the pull spread
+   outward from the middle, rather than everything starting at once.
+   Deliberately only TWO transform keyframes (0% and 100%, with a middle stop touching only opacity) —
+   an earlier version added extra transform stops in between and it read as the icons spinning in place
+   instead of drifting inward: with a steep ease-in, extra keyframes before 100% cram large rotation
+   swings into the barely-moving early stretch, so rotation dominates what little movement you can see.
+   With only start/end transforms, translate, scale, and rotate interpolate together as one continuous
+   arc, so the tumble and the drift-to-center read as the same motion. */
+/* Starts at opacity 0, not 1 — deliberately masking the fact that this element's base `top`/`left`
+   just jumped instantly from wherever the idle rise (`.animate-auth-walk`) happened to leave it to a
+   completely different, fixed grid position for convergence (the two use different position schemes;
+   see `AuthBackdrop.tsx`). Without this, that jump was a visible teleport the instant login succeeds —
+   this fades it in over the first 10% instead, hiding the reposition in the same beat as the element
+   "waking up" to start converging. Purely an opacity change, no transform stop added, so it doesn't
+   reintroduce the earlier "icons spin in place" bug (see the note on `.animate-converge-to-center`
+   below) — that one was specifically about adding extra TRANSFORM keyframes. */
+@keyframes convergeToCenter {
+  0% {
+    transform: translate(0, 0) scale(1) rotate(0deg);
+    opacity: 0;
+    filter: brightness(1);
+  }
+  10% {
+    opacity: 1;
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--center-dx, 0), var(--center-dy, 0)) scale(0.15) rotate(var(--tumble, 30deg));
+    opacity: 0;
+    filter: brightness(1.7);
+  }
+}
+/* A gentle ease-in fallback — a slow, floaty drift that gradually gathers pace, not a violent
+   last-second rush. Every actual converging element overrides both `animation-duration` and
+   `animation-timing-function` inline with its own randomized values (see `AuthBackdrop.tsx`'s
+   `randomConvergeDuration`/`randomConvergeEasing`), so this 2200ms/ease-in is just what the class
+   falls back to if either were ever omitted — the real per-element range is 1700-2600ms. */
+.animate-converge-to-center {
+  animation: convergeToCenter 2200ms ease-in both;
+}
+
+/* The Big Bang flash right as everything finishes converging and cracking — a bright white-violet
+   burst expanding from the center, held a long beat at full intensity, then fading slowly (rather
+   than snapping off) so it visibly bleeds into the book's own materialize entrance instead of a hard
+   cut — a long, "poof" dissolve rather than an instant switch. */
+@keyframes cosmicFlash {
+  0% {
+    transform: scale(0.1);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  40% {
+    transform: scale(1.6);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(3.6);
+    opacity: 0;
+  }
+}
+.animate-cosmic-flash {
+  animation: cosmicFlash 1700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* A quick, tight second flash layered under the main one — reads as an actual detonation (a bright
+   core plus a slower-fading halo) instead of one flat expanding circle. */
+@keyframes cosmicFlashCore {
+  0% {
+    transform: scale(0.05);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.2);
+    opacity: 0;
+  }
+}
+.animate-cosmic-flash-core {
+  animation: cosmicFlashCore 800ms ease-out both;
+}
+
+/* The book's entrance once the flash fades: it eases down from above into view, with no bounce/
+   overshoot (a snappy pop reads as punchy and game-like, not reverent), and NO opacity ramp at all —
+   it's fully opaque from the very first frame, so there's zero ambiguity about "when did the book show
+   up": the instant it mounts, it's visibly there, only its position/scale still quickly settling. Two
+   earlier things that made this read as slower/whiter than intended have both been removed: a
+   `brightness(2)→brightness(1)` filter that washed the card out to flat white/gray for a stretch of
+   the animation, and a separate light-beam element that was a literal white gradient shaft sitting
+   directly above the book. */
+@keyframes bookMaterialize {
+  0% {
+    transform: translateY(-220px) scale(0.32);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+.animate-book-materialize {
+  animation: bookMaterialize 850ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* The book cover's idle "waiting to be opened" breathing glow — a separate absolutely-positioned
+   glow layer (a radial-gradient, not a filter) whose OPACITY oscillates, rather than animating the
+   card's own `box-shadow` directly. Animating `box-shadow` forces a full repaint of the element on
+   every frame (it's not a compositor-only property like `transform`/`opacity`), which is exactly
+   what read as "laggy, not smooth" — the same class of bug as the sidebar's old `blur()` glows,
+   just via a different expensive CSS property this time. */
+@keyframes bookGlowBreathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.06);
+  }
+}
+.animate-book-glow-breathe {
+  animation: bookGlowBreathe 2.6s ease-in-out infinite;
+}
+
+/* A quick, punchy feedback pop the instant the book is clicked — distinct from the idle float, plays
+   once and holds at rest. */
+@keyframes bookClickPop {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(0.94);
+  }
+  60% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.animate-book-click-pop {
+  animation: bookClickPop 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* The book's continuous idle bob once its one-shot materialize entrance has finished (see
+ * `BookIntro.tsx`) — an invitation to click it, not a static card sitting there. */
+@keyframes bookFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+.animate-book-float {
+  animation: bookFloat 2.8s ease-in-out infinite;
+}
+
+/* The screen dimming in step with the gravitational pull — an iris closing in from the edges, not a
+   flat opacity fade. `--iris-radius` is a registered custom property (via `@property`, giving the
+   browser a numeric type to interpolate rather than treating it as an opaque string) driving a
+   radial-gradient's transparent hole: it starts covering the whole screen and shrinks toward the
+   center as the glyphs drift in. Deliberately caps out at a dim charcoal, NOT flat opaque black — a
+   full black-out read as too harsh/total; this keeps a faint sense of the scene still being there
+   under it. Duration is hardcoded to match `CONVERGE_MS` in `CosmicTransition.tsx` (which itself must
+   equal `AuthBackdrop.tsx`'s `CONVERGE_MAX_DELAY_MS` + `CONVERGE_DURATION_MAX_MS`) — keep them in sync
+   if any of the three changes. */
+@property --iris-radius {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 150%;
+}
+@keyframes convergeBlackout {
+  0% {
+    --iris-radius: 150%;
+  }
+  100% {
+    --iris-radius: 0%;
+  }
+}
+.animate-converge-blackout {
+  background: radial-gradient(circle at 50% 50%, transparent var(--iris-radius), rgba(6, 5, 14, 0.72) calc(var(--iris-radius) + 20%));
+  animation: convergeBlackout 2350ms cubic-bezier(0.4, 0, 0.7, 1) both;
+}
+
+/* A vertical "digital rain" scanline texture (repeating-linear-gradient streaks, animated purely via
+   background-position — no image assets, no filter cost) — now anchored to the bottom of the
+   background as the book's curtain lifts (not on the book/journal itself, which stays clean), so it
+   reads as the departing scene dissolving into code rather than cluttering the cover's own text. */
+@keyframes matrixRainScroll {
+  from {
+    background-position-y: 0;
+  }
+  to {
+    background-position-y: 200px;
+  }
+}
+@keyframes matrixRainFlicker {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  15%,
+  70% {
+    opacity: 0.55;
+  }
+}
+.animate-matrix-rain {
+  animation:
+    matrixRainScroll 350ms linear infinite,
+    matrixRainFlicker 550ms ease-in-out both;
+}
+
+/* The full cover panel swiping up and away like a curtain rising — what used to be a page-swing is
+   now one clean upward exit, timed to start right as the glitch/rain finish so the dashboard
+   underneath (already mounted and animating — see `BookIntro.tsx`) is what's left once it clears. */
+@keyframes curtainLift {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-100%);
+    opacity: 0.4;
+  }
+}
+.animate-curtain-lift {
+  animation: curtainLift 650ms cubic-bezier(0.6, 0, 0.35, 1) both;
 }
 
 /* Applied to every Card app-wide (see ui/card.tsx): on hover, the border lights up violet and a
@@ -196,4 +801,23 @@ body {
   -webkit-background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
+}
+
+/* The onboarding tour's spotlight ring (`TourOverlay.tsx`) — a gentle pulse on a dedicated layer, only
+   opacity/scale (never box-shadow's own spread, which would force a repaint every frame the way the
+   sidebar's old blur glows once did). Sits on TOP of a separate, non-animated box-shadow "cutout" div
+   that does the actual darkening, so the two never fight over the same property. */
+@keyframes tourPulseRing {
+  0%,
+  100% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(1.03);
+  }
+}
+.animate-tour-pulse {
+  animation: tourPulseRing 1.8s ease-in-out infinite;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -23,7 +23,6 @@ import {
   Sparkles,
   RefreshCw,
   ZoomIn,
-  ZoomOut,
 } from "lucide-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import {
@@ -33,6 +32,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { ImageLightbox } from "@/components/shared/ImageLightbox";
+import { DateTimePicker } from "@/components/shared/DateTimePicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,6 +51,7 @@ import { useTradeMutations, useTrade } from "./useTrades";
 import { parseVoiceTrade } from "@/features/ai/voiceFill";
 import { useSettings } from "@/features/settings/useSettings";
 import { copyScreenshotsToAppData } from "@/lib/screenshots";
+import { ignoreTourOutsideClicks } from "@/features/tour/ignoreTourOutsideClicks";
 
 const schema = z.object({
   entry_time: z.string().min(1, "Required"),
@@ -113,9 +115,16 @@ const TONE_GRADIENT: Record<string, string> = {
 
 /** A consistent elevated panel for every form section — border, subtle surface lift, and a colored accent
  * bar along the top so each section reads as its own distinct "card" instead of blending into the page. */
-function SectionCard({ tone, children }: { tone: Parameters<typeof IconBadge>[0]["tone"]; children: React.ReactNode }) {
+function SectionCard({
+  tone,
+  children,
+  ...rest
+}: { tone: Parameters<typeof IconBadge>[0]["tone"]; children: React.ReactNode } & React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className="relative overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-lg shadow-black/25 transition-shadow duration-300 focus-within:shadow-xl">
+    <div
+      className="relative overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-lg shadow-black/25 transition-shadow duration-300 focus-within:shadow-xl"
+      {...rest}
+    >
       <div className="absolute inset-x-0 top-0 h-1" style={{ background: TONE_GRADIENT[tone as string] }} />
       <div className="space-y-3.5">{children}</div>
     </div>
@@ -338,7 +347,7 @@ export function AddTradeModal() {
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && close()}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-4xl" data-tour="trade-modal" onInteractOutside={ignoreTourOutsideClicks}>
         <DialogHeader>
           <div className="flex items-center gap-3">
             <div className="relative shrink-0">
@@ -389,7 +398,7 @@ export function AddTradeModal() {
             </div>
           )}
 
-          <SectionCard tone="blue">
+          <SectionCard tone="blue" data-tour="trade-details">
             <SectionHeader icon={Receipt} tone="blue" title="Trade Details" subtitle="Entry, outcome, risk & market" />
 
             <div className="space-y-1.5">
@@ -430,12 +439,22 @@ export function AddTradeModal() {
                 <Label className="flex items-center gap-1">
                   <FieldIcon icon={Calendar} /> Entry Date & Time
                 </Label>
-                <Input type="datetime-local" {...register("entry_time")} />
+                <Controller
+                  name="entry_time"
+                  control={control}
+                  render={({ field }) => <DateTimePicker value={field.value} onChange={field.onChange} />}
+                />
                 {errors.entry_time && <p className="text-xs text-[var(--color-danger)]">{errors.entry_time.message}</p>}
                 <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
                   <input type="checkbox" {...register("hasEndDate")} /> Add end date
                 </label>
-                {hasEndDate && <Input type="datetime-local" {...register("end_time")} />}
+                {hasEndDate && (
+                  <Controller
+                    name="end_time"
+                    control={control}
+                    render={({ field }) => <DateTimePicker value={field.value ?? ""} onChange={field.onChange} placeholder="Select end date & time" />}
+                  />
+                )}
               </div>
 
               <div className="space-y-1.5">
@@ -498,7 +517,7 @@ export function AddTradeModal() {
           </SectionCard>
 
           {variables.length > 0 && (
-            <SectionCard tone="teal">
+            <SectionCard tone="teal" data-tour="trade-variables">
               <SectionHeader icon={SlidersHorizontal} tone="teal" title="Variables" subtitle={`${variables.length} configured dimension${variables.length === 1 ? "" : "s"}`} />
               <div className="grid grid-cols-2 gap-3">
                 {variables.map((v) => {
@@ -554,12 +573,12 @@ export function AddTradeModal() {
             </SectionCard>
           )}
 
-          <SectionCard tone="amber">
+          <SectionCard tone="amber" data-tour="trade-notes">
             <SectionHeader icon={NotebookPen} tone="amber" title="Notes" subtitle="What happened, what you learned" />
             <Textarea rows={3} placeholder="What happened? What did you learn?" {...register("notes")} />
           </SectionCard>
 
-          <SectionCard tone="rose">
+          <SectionCard tone="rose" data-tour="trade-screenshots">
             <SectionHeader icon={Images} tone="rose" title="Screenshots" subtitle="Entry & liquidity context" />
             <div className="space-y-3">
               <ScreenshotSlot
@@ -715,121 +734,5 @@ function ScreenshotSlot({
       <span className="text-base font-semibold">{label}</span>
       <span className="text-xs">Click to upload a screenshot</span>
     </button>
-  );
-}
-
-const ZOOM_MIN = 1;
-const ZOOM_MAX = 5;
-
-function ImageLightbox({ path, label, onClose }: { path: string; label: string; onClose: () => void }) {
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const dragRef = useRef<{ startX: number; startY: number; panX: number; panY: number } | null>(null);
-
-  function clampZoom(z: number) {
-    return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
-  }
-
-  function applyZoom(next: number) {
-    const clamped = clampZoom(next);
-    setZoom(clamped);
-    if (clamped === ZOOM_MIN) setPan({ x: 0, y: 0 });
-  }
-
-  function handleWheel(e: React.WheelEvent) {
-    e.preventDefault();
-    applyZoom(zoom - e.deltaY * 0.0018 * zoom);
-  }
-
-  function handleMouseDown(e: React.MouseEvent) {
-    if (zoom <= ZOOM_MIN) return;
-    dragRef.current = { startX: e.clientX, startY: e.clientY, panX: pan.x, panY: pan.y };
-  }
-  function handleMouseMove(e: React.MouseEvent) {
-    if (!dragRef.current) return;
-    setPan({ x: dragRef.current.panX + (e.clientX - dragRef.current.startX), y: dragRef.current.panY + (e.clientY - dragRef.current.startY) });
-  }
-  function endDrag() {
-    dragRef.current = null;
-  }
-
-  function toggleZoom() {
-    if (zoom > ZOOM_MIN) applyZoom(1);
-    else applyZoom(2.5);
-  }
-
-  // A real nested Radix Dialog, not a hand-rolled fixed div — Radix tracks its own stack of open
-  // dismissable layers, so this reliably renders above the parent New Trade dialog and outside-click/Escape
-  // only ever dismisses this (topmost) layer instead of both at once.
-  return (
-    <Dialog open onOpenChange={(v) => !v && onClose()}>
-      <DialogContent
-        hideClose
-        className="inset-0 top-0 left-0 right-0 bottom-0 flex h-screen max-h-screen w-screen max-w-none translate-x-0 translate-y-0 items-center justify-center gap-0 rounded-none border-none bg-black/90 p-3 shadow-none"
-        onClick={onClose}
-      >
-        <span className="absolute left-6 top-6 flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-sm">
-          <ZoomIn className="h-3.5 w-3.5" /> {label}
-        </span>
-
-        <div
-          className="absolute right-6 top-6 flex items-center gap-1 rounded-full border border-white/10 bg-black/45 p-1.5 shadow-xl backdrop-blur-md"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            type="button"
-            onClick={() => applyZoom(zoom - 0.6)}
-            title="Zoom out"
-            className="rounded-full p-2 text-white transition-colors hover:bg-white/15"
-          >
-            <ZoomOut className="h-4 w-4" />
-          </button>
-          <span className="min-w-[3.5ch] text-center text-xs font-medium tabular-nums text-white/85">{Math.round(zoom * 100)}%</span>
-          <button
-            type="button"
-            onClick={() => applyZoom(zoom + 0.6)}
-            title="Zoom in"
-            className="rounded-full p-2 text-white transition-colors hover:bg-white/15"
-          >
-            <ZoomIn className="h-4 w-4" />
-          </button>
-          <div className="mx-1 h-5 w-px bg-white/15" />
-          <button
-            type="button"
-            onClick={onClose}
-            title="Close"
-            className="rounded-full bg-[var(--color-danger)] p-2 text-white shadow-md transition-transform duration-150 hover:scale-110 hover:brightness-110 active:scale-95"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
-          <img
-            src={convertFileSrc(path)}
-            alt={label}
-            draggable={false}
-            onWheel={handleWheel}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={endDrag}
-            onMouseLeave={endDrag}
-            onDoubleClick={(e) => {
-              e.stopPropagation();
-              toggleZoom();
-            }}
-            style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-              cursor: zoom > ZOOM_MIN ? (dragRef.current ? "grabbing" : "grab") : "zoom-in",
-            }}
-            className="block max-h-[92vh] max-w-[92vw] select-none rounded-lg object-contain shadow-2xl transition-transform duration-150 ease-out"
-          />
-        </div>
-
-        <span className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-3 py-1 text-xs text-white/70 backdrop-blur-sm">
-          Scroll or use the buttons to zoom · drag to pan · double-click to reset
-        </span>
-      </DialogContent>
-    </Dialog>
   );
 }

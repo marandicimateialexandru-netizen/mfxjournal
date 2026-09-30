@@ -90,7 +90,14 @@ export function FundedAccountSection({ historicalR }: { historicalR: number[] })
               <XAxis dataKey="tradeIndex" tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" />
               <YAxis tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" domain={[0, 100]} />
               <Tooltip {...chartTooltipProps} />
-              <Area type="monotone" dataKey="survivalPct" stroke="var(--color-success)" fill="var(--color-success)" fillOpacity={0.15} />
+              <Area
+                type="monotone"
+                dataKey="survivalPct"
+                stroke="var(--color-success)"
+                fill="var(--color-success)"
+                fillOpacity={0.15}
+                isAnimationActive={false}
+              />
             </AreaChart>
           </ResponsiveContainer>
         </div>

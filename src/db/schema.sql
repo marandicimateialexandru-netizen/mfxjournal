@@ -1,9 +1,22 @@
 -- MFXJournal SQLite schema
 
+-- A local profile is one person sharing this installed copy of the app — logging in picks a
+-- profile, and everything below (workspaces and everything under them) is scoped to it. This is
+-- entirely local: no network account, no cloud sync, just per-person data isolation on one machine.
+CREATE TABLE IF NOT EXISTS profiles (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  password_hash TEXT NOT NULL,
+  password_salt TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  has_completed_tutorial INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS workspaces (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  profile_id TEXT REFERENCES profiles(id)
 );
 
 CREATE TABLE IF NOT EXISTS strategies (
@@ -137,7 +150,12 @@ CREATE TABLE IF NOT EXISTS settings (
   accounts_enabled INTEGER NOT NULL DEFAULT 0,
   streak_analysis_enabled INTEGER NOT NULL DEFAULT 0,
   streak_be_breaks_streak INTEGER NOT NULL DEFAULT 1,
-  variables_card_order TEXT
+  variables_card_order TEXT,
+  ai_provider TEXT NOT NULL DEFAULT 'claude',
+  ollama_model TEXT NOT NULL DEFAULT 'llama3.1',
+  ollama_base_url TEXT NOT NULL DEFAULT 'http://localhost:11434',
+  groq_api_key TEXT,
+  groq_model TEXT NOT NULL DEFAULT 'openai/gpt-oss-120b'
 );
 
 CREATE TABLE IF NOT EXISTS variable_templates (
@@ -214,6 +232,14 @@ CREATE TABLE IF NOT EXISTS onboarding_state (
 CREATE INDEX IF NOT EXISTS idx_trades_workspace ON trades(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_trades_entry_time ON trades(entry_time);
 CREATE INDEX IF NOT EXISTS idx_trades_strategy ON trades(strategy_id);
+-- Covers listTrades' exact `WHERE workspace_id = ? ORDER BY entry_time ASC` — lets SQLite satisfy
+-- both the filter and the sort straight from the index (no separate filesort step) once a
+-- workspace's trade count gets into the thousands.
+CREATE INDEX IF NOT EXISTS idx_trades_workspace_entry ON trades(workspace_id, entry_time);
 CREATE INDEX IF NOT EXISTS idx_tvv_trade ON trade_variable_values(trade_id);
 CREATE INDEX IF NOT EXISTS idx_tvv_variable ON trade_variable_values(variable_id);
+-- Was missing entirely — every trade list load hydrates screenshots via `WHERE trade_id IN (...)`
+-- across every fetched trade at once (see hydrate() in db/queries/trades.ts), which was a full
+-- table scan of trade_screenshots on every load with no index to satisfy it.
+CREATE INDEX IF NOT EXISTS idx_trade_screenshots_trade ON trade_screenshots(trade_id);
 CREATE INDEX IF NOT EXISTS idx_planning_workspace ON planning_entries(workspace_id, period, date_start);

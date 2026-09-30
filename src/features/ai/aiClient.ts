@@ -88,6 +88,57 @@ export async function callClaude(options: AiCallOptions): Promise<AiCallResult> 
   return { text, toolUses, raw: data };
 }
 
+/** Runs Claude through one round of tool use: send the request with `tools`, and if the model calls
+ *  one, execute it locally via `executeTool` and send the result straight back (replaying the exact
+ *  content blocks Anthropic returned, so the follow-up turn is well-formed) for a final text answer —
+ *  capped at a single round so a query always terminates in a real reply rather than looping. */
+export async function callClaudeWithTool(
+  options: AiCallOptions & { executeTool: (name: string, input: Record<string, unknown>) => unknown },
+): Promise<AiCallResult> {
+  const first = await callClaude(options);
+  if (first.toolUses.length === 0) return first;
+
+  const toolUse = first.toolUses[0];
+  const toolResult = options.executeTool(toolUse.name, toolUse.input);
+  const assistantContent = (first.raw as { content?: unknown })?.content ?? [
+    { type: "text", text: first.text },
+    toolUse,
+  ];
+
+  const response = await fetch(ANTHROPIC_API_URL, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": options.apiKey!,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: options.maxTokens ?? 2048,
+      system: options.system,
+      messages: [
+        ...options.messages,
+        { role: "assistant", content: assistantContent },
+        { role: "user", content: [{ type: "tool_result", tool_use_id: toolUse.id, content: JSON.stringify(toolResult) }] },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`Anthropic API error (${response.status}): ${body.slice(0, 300)}`);
+  }
+
+  const data = await response.json();
+  const content = (data.content ?? []) as Array<Record<string, unknown>>;
+  const text = content
+    .filter((c) => c.type === "text")
+    .map((c) => c.text as string)
+    .join("\n");
+  return { text, toolUses: [], raw: data };
+}
+
 export async function testApiKey(apiKey: string): Promise<{ ok: boolean; message: string }> {
   try {
     await callClaude({
