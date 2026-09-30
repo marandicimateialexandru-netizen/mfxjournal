@@ -41,7 +41,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { IconBadge } from "@/components/shared/IconBadge";
-import { getTradingIcon, LiquidityIcon } from "@/components/shared/tradingIcons";
+import { getTradingIcon, LiquidityIcon, TrendIcon } from "@/components/shared/tradingIcons";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/store/uiStore";
 import { useVariables } from "@/features/variables/useVariables";
@@ -165,8 +165,10 @@ export function AddTradeModal() {
   const [variableValues, setVariableValues] = useState<Record<string, { valueId?: string; numberValue?: number }>>({});
   const [entryScreenshot, setEntryScreenshot] = useState<string | null>(null);
   const [liquidityScreenshot, setLiquidityScreenshot] = useState<string | null>(null);
+  const [trendScreenshot, setTrendScreenshot] = useState<string | null>(null);
   const [entryBusy, setEntryBusy] = useState(false);
   const [liquidityBusy, setLiquidityBusy] = useState(false);
+  const [trendBusy, setTrendBusy] = useState(false);
   const [lightbox, setLightbox] = useState<{ path: string; label: string } | null>(null);
   const [voiceStatus, setVoiceStatus] = useState<"idle" | "listening" | "processing">("idle");
   const [voiceError, setVoiceError] = useState<string | null>(null);
@@ -209,6 +211,7 @@ export function AddTradeModal() {
       setVariableValues(existingTrade.variableValues ?? {});
       setEntryScreenshot(existingTrade.screenshots?.find((s) => s.label === "Entry")?.file_path ?? null);
       setLiquidityScreenshot(existingTrade.screenshots?.find((s) => s.label === "Liquidity")?.file_path ?? null);
+      setTrendScreenshot(existingTrade.screenshots?.find((s) => s.label === "Trend")?.file_path ?? null);
     } else if (open && !existingTrade && draftTrade) {
       reset({
         entry_time: toDatetimeLocal((draftTrade.entry_time as string) ?? new Date().toISOString()),
@@ -223,6 +226,7 @@ export function AddTradeModal() {
       setVariableValues((draftTrade.variableValues as Record<string, { valueId?: string; numberValue?: number }>) ?? {});
       setEntryScreenshot(null);
       setLiquidityScreenshot(null);
+      setTrendScreenshot(null);
     } else if (open && !existingTrade && !draftTrade) {
       reset({
         entry_time: toDatetimeLocal(new Date().toISOString()),
@@ -237,6 +241,7 @@ export function AddTradeModal() {
       setVariableValues({});
       setEntryScreenshot(null);
       setLiquidityScreenshot(null);
+      setTrendScreenshot(null);
     }
   }, [open, existingTrade, draftTrade, reset]);
 
@@ -254,6 +259,7 @@ export function AddTradeModal() {
     const screenshots = [
       entryScreenshot ? { path: entryScreenshot, label: "Entry" } : null,
       liquidityScreenshot ? { path: liquidityScreenshot, label: "Liquidity" } : null,
+      trendScreenshot ? { path: trendScreenshot, label: "Trend" } : null,
     ].filter((s): s is { path: string; label: string } => s !== null);
 
     const input = {
@@ -276,9 +282,9 @@ export function AddTradeModal() {
     close();
   }
 
-  async function handleUploadSlot(slot: "Entry" | "Liquidity") {
-    const setBusy = slot === "Entry" ? setEntryBusy : setLiquidityBusy;
-    const setPath = slot === "Entry" ? setEntryScreenshot : setLiquidityScreenshot;
+  async function handleUploadSlot(slot: "Entry" | "Liquidity" | "Trend") {
+    const setBusy = slot === "Entry" ? setEntryBusy : slot === "Liquidity" ? setLiquidityBusy : setTrendBusy;
+    const setPath = slot === "Entry" ? setEntryScreenshot : slot === "Liquidity" ? setLiquidityScreenshot : setTrendScreenshot;
     try {
       const { open: openDialog } = await import("@tauri-apps/plugin-dialog");
       const selected = await openDialog({
@@ -579,7 +585,7 @@ export function AddTradeModal() {
           </SectionCard>
 
           <SectionCard tone="rose" data-tour="trade-screenshots">
-            <SectionHeader icon={Images} tone="rose" title="Screenshots" subtitle="Entry & liquidity context" />
+            <SectionHeader icon={Images} tone="rose" title="Screenshots" subtitle="Entry, liquidity & trend context" />
             <div className="space-y-3">
               <ScreenshotSlot
                 label="Entry"
@@ -600,6 +606,16 @@ export function AddTradeModal() {
                 onUpload={() => handleUploadSlot("Liquidity")}
                 onClear={() => setLiquidityScreenshot(null)}
                 onView={() => liquidityScreenshot && setLightbox({ path: liquidityScreenshot, label: "Liquidity" })}
+              />
+              <ScreenshotSlot
+                label="Trend"
+                icon={TrendIcon}
+                tone="green"
+                path={trendScreenshot}
+                busy={trendBusy}
+                onUpload={() => handleUploadSlot("Trend")}
+                onClear={() => setTrendScreenshot(null)}
+                onView={() => trendScreenshot && setLightbox({ path: trendScreenshot, label: "Trend" })}
               />
             </div>
           </SectionCard>

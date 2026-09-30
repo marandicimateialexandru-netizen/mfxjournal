@@ -170,7 +170,7 @@ export const TOUR_STEPS: TourStep[] = [
     cardSide: "right",
     icon: Images,
     title: "Screenshots",
-    body: "Two slots — Entry and Liquidity — so the chart context for a trade lives with the trade itself. Click one to upload, click an uploaded one to zoom in full-screen, hover to replace or remove it.",
+    body: "Three slots — Entry, Liquidity, and Trend — so the chart context for a trade lives with the trade itself. Click one to upload, click an uploaded one to zoom in full-screen, hover to replace or remove it.",
     example: "Screenshot your entry the moment you take it — reading your own reasoning weeks later is worth far more than the number alone.",
   },
   {
