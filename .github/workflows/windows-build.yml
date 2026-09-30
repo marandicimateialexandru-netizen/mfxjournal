@@ -9,6 +9,7 @@ on:
   workflow_dispatch:
   push:
     tags: ["v*"]
+    branches: [claude/app-download-screen-issue-pvth2o]
 
 jobs:
   build:
