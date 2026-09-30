@@ -144,7 +144,7 @@ export default function JournalPage() {
         </Select>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
+      <div className="overflow-hidden rounded-lg border border-[var(--color-border)]" data-tour="journal-table">
         <div
           className="grid border-b border-[var(--color-border)] bg-[var(--color-surface)] text-left text-sm text-[var(--color-text-muted)]"
           style={{ gridTemplateColumns: GRID_COLS }}

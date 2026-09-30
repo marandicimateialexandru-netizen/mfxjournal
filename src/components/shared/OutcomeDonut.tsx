@@ -1,7 +1,8 @@
-import { useId, useState } from "react";
+import { Fragment, useId, useState } from "react";
 import { PieChart, Pie, Cell, Sector, ResponsiveContainer } from "recharts";
 import type { PieSectorDataItem } from "recharts/types/polar/Pie";
 import { useCountUp } from "@/lib/useCountUp";
+import { cn } from "@/lib/utils";
 
 type Segment = {
   key: string;
@@ -47,7 +48,7 @@ export function OutcomeDonut({
     <div className="outcome-donut-chart flex h-full flex-col items-center justify-center gap-2">
       <style>{`
         .outcome-donut-chart .recharts-sector {
-          transition: d 200ms ease-out, filter 200ms ease;
+          transition: d 260ms cubic-bezier(0.34, 1.56, 0.64, 1), filter 200ms ease;
         }
       `}</style>
       <div className="relative w-full flex-1" style={{ minHeight: 0 }}>
@@ -60,9 +61,14 @@ export function OutcomeDonut({
                   <stop offset="100%" stopColor={d.deep} />
                 </linearGradient>
               ))}
-              <filter id={glowId} x="-50%" y="-50%" width="200%" height="200%">
-                <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="#000000" floodOpacity="0.4" />
-              </filter>
+              {/* One glow filter per segment, colored to match it (replacing a single generic black
+                  drop-shadow) — a hovered green slice glows green, a red one glows red, instead of
+                  every segment getting the same flat dark halo regardless of its own color. */}
+              {data.map((d) => (
+                <filter key={d.key} id={`${glowId}-${d.key}`} x="-60%" y="-60%" width="220%" height="220%">
+                  <feDropShadow dx="0" dy="0" stdDeviation="5" floodColor={d.base} floodOpacity="0.65" />
+                </filter>
+              ))}
             </defs>
 
             {/* Faint track ring beneath the colored arcs, for layered depth */}
@@ -110,10 +116,10 @@ export function OutcomeDonut({
                   // which is what was actually causing the frame drops/stutter on load).
                   <Sector
                     {...rest}
-                    outerRadius={(Number(rest.outerRadius) || 0) + 6}
+                    outerRadius={(Number(rest.outerRadius) || 0) + 8}
                     stroke={segment?.base ?? "var(--color-surface)"}
                     strokeWidth={2}
-                    style={{ filter: `url(#${glowId})` }}
+                    style={{ filter: segment ? `url(#${glowId}-${segment.key})` : undefined }}
                   />
                 );
               }}
@@ -131,27 +137,35 @@ export function OutcomeDonut({
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
           <div
-            className="absolute h-24 w-24 rounded-full transition-colors duration-200"
+            className={cn(
+              "absolute h-24 w-24 rounded-full transition-[background,transform] duration-300 ease-out",
+              hovered ? "scale-110" : "scale-100",
+            )}
             style={{
               background: hovered
-                ? `radial-gradient(circle, color-mix(in srgb, ${hovered.base} 22%, transparent), transparent 72%)`
+                ? `radial-gradient(circle, color-mix(in srgb, ${hovered.base} 26%, transparent), transparent 72%)`
                 : "radial-gradient(circle, color-mix(in srgb, var(--color-success) 22%, transparent), transparent 72%)",
             }}
           />
           {hovered ? (
-            <>
-              <span className="relative text-xl font-extrabold tabular-nums" style={{ color: hovered.base }}>
+            // Keyed by segment so hovering a DIFFERENT slice remounts these spans (not just updates
+            // their text) — that's what makes `animate-donut-center-pop` actually replay on every
+            // switch, not just the first hover. No percentage here: it's already on the legend chip
+            // below, so this stays just the count (which the count-up-style number already reads as
+            // "the numbers are in the middle") and the plain category name.
+            <Fragment key={hovered.key}>
+              <span className="relative animate-donut-center-pop text-xl font-extrabold tabular-nums" style={{ color: hovered.base }}>
                 {hovered.value}
               </span>
-              <span className="relative max-w-[6rem] text-center text-[11px] leading-tight text-[var(--color-text-muted)]">
-                {hovered.name} · {hovered.pct}%
+              <span className="relative animate-donut-center-pop max-w-[6rem] text-center text-[11px] font-semibold leading-tight text-[var(--color-text-muted)]">
+                {hovered.name}
               </span>
-            </>
+            </Fragment>
           ) : (
-            <>
-              <span className="relative text-2xl font-extrabold tabular-nums text-gradient-profit">{Math.round(animatedTotal)}</span>
-              <span className="relative text-[11px] text-[var(--color-text-muted)]">trades</span>
-            </>
+            <Fragment key="total">
+              <span className="relative animate-donut-center-pop text-2xl font-extrabold tabular-nums text-gradient-profit">{Math.round(animatedTotal)}</span>
+              <span className="relative animate-donut-center-pop text-[11px] text-[var(--color-text-muted)]">trades</span>
+            </Fragment>
           )}
         </div>
       </div>

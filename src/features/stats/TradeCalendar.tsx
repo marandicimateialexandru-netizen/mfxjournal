@@ -177,6 +177,7 @@ export function TradeCalendar({
                         return (
                           <button
                             key={key}
+                            data-tour="calendar-day"
                             disabled={!hasTrades}
                             onClick={() => selectDay(day, dayTrades)}
                             style={{ background: toneBackground(tone, 16) }}
@@ -236,6 +237,7 @@ export function TradeCalendar({
                           weekTotalR > 0 ? "positive" : weekTotalR < 0 ? "negative" : weekTrades.length > 0 ? "warning" : "none";
                         return (
                           <button
+                            data-tour="calendar-week"
                             onClick={() => selectWeek(weekNum, weekTrades)}
                             disabled={weekTrades.length === 0}
                             style={{ background: toneBackground(weekTone, 16) }}
@@ -297,7 +299,10 @@ export function TradeCalendar({
               </div>
             </div>
 
-            <div className="w-full shrink-0 border-t border-[var(--color-border)] pt-4 lg:w-64 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+            <div
+              className="w-full shrink-0 border-t border-[var(--color-border)] pt-4 lg:w-64 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0"
+              data-tour="calendar-day-panel"
+            >
               <h4 className="mb-4 text-sm font-bold text-[var(--color-text)]">Select a Day</h4>
               {!selection ? (
                 <div className="flex flex-col items-center gap-3 py-6 text-center">

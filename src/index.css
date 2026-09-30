@@ -119,6 +119,24 @@ body {
   animation: radarPopIn 0.4s ease-out both;
 }
 
+/* The Outcome Donut's center label swap (total trades <-> a hovered segment's count/name) — a quick
+   scale-in-from-slightly-small with a small spring overshoot, retriggered by mounting a fresh element
+   (keyed by the current hovered segment) rather than trying to animate between two different pieces
+   of text, which CSS has no clean way to crossfade. */
+@keyframes donutCenterPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.animate-donut-center-pop {
+  animation: donutCenterPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
 /* A one-shot "sonar ping" ring expanding out from the radar's center, timed to land right as the
    web finishes drawing itself in (see the animationDuration on <Radar>) — plays once and stops
    (no loop), so unlike the equity curve's old pulsing end-dot this can't turn into a persistent
@@ -783,4 +801,23 @@ body {
   -webkit-background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
+}
+
+/* The onboarding tour's spotlight ring (`TourOverlay.tsx`) — a gentle pulse on a dedicated layer, only
+   opacity/scale (never box-shadow's own spread, which would force a repaint every frame the way the
+   sidebar's old blur glows once did). Sits on TOP of a separate, non-animated box-shadow "cutout" div
+   that does the actual darkening, so the two never fight over the same property. */
+@keyframes tourPulseRing {
+  0%,
+  100% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(1.03);
+  }
+}
+.animate-tour-pulse {
+  animation: tourPulseRing 1.8s ease-in-out infinite;
 }

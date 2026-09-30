@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TitleBar } from "@/components/layout/TitleBar";
@@ -6,12 +6,14 @@ import { useAppBootstrap } from "@/db/useBootstrap";
 import { Logo } from "@/components/shared/Logo";
 import { AddTradeModal } from "@/features/trades/AddTradeModal";
 import { AiTaskAssistant } from "@/features/ai/AiTaskAssistant";
+import { TourOverlay } from "@/features/tour/TourOverlay";
 import { IntroSplash } from "@/features/auth/IntroSplash";
 import { ProfileGate } from "@/features/auth/ProfileGate";
 import { CosmicTransition, CONVERGE_MS } from "@/features/auth/CosmicTransition";
 import { BookIntro } from "@/features/auth/BookIntro";
 import { AuthBackdrop, BACKDROP_REVEAL_MS, type BackdropMode } from "@/features/auth/AuthBackdrop";
 import { useAuthStore } from "@/store/authStore";
+import { useTourStore } from "@/store/tourStore";
 
 import DashboardPage from "@/app/dashboard/DashboardPage";
 import JournalPage from "@/app/journal/JournalPage";
@@ -80,12 +82,30 @@ export default function App() {
   const login = useAuthStore((s) => s.login);
   const profileId = useAuthStore((s) => s.currentProfileId);
   const profileName = useAuthStore((s) => s.currentProfileName);
+  const hasCompletedTutorial = useAuthStore((s) => s.hasCompletedTutorial);
+  const startTour = useTourStore((s) => s.start);
   const { isReady, error } = useAppBootstrap(profileId);
 
-  function handleAuthSuccess(id: string, name: string) {
-    login(id, name);
+  function handleAuthSuccess(id: string, name: string, tutorialAlreadySeen: boolean) {
+    login(id, name, tutorialAlreadySeen);
     setPhase("cosmic");
   }
+
+  // Auto-launch the onboarding tour the first time this profile ever reaches the dashboard — never
+  // again after that (see `authStore`'s `hasCompletedTutorial`, carried from the `profiles` row at
+  // login). Delayed so it doesn't collide with the dashboard's own one-shot entrance animations
+  // (StatTile count-ups, the equity curve draw-in — see `contentMounted`'s own comment above), which
+  // take up to ~1.9s to finish; starting the tour mid-count would be visually chaotic, spotlighting
+  // numbers that are still animating. `tourAutoStarted` guards against re-firing if this effect's
+  // deps happen to change again later in the same session (e.g. once the tour itself flips
+  // `hasCompletedTutorial` back to true on finish).
+  const tourAutoStarted = useRef(false);
+  useEffect(() => {
+    if (!contentMounted || !isReady || error || hasCompletedTutorial || tourAutoStarted.current) return;
+    tourAutoStarted.current = true;
+    const t = setTimeout(startTour, 2000);
+    return () => clearTimeout(t);
+  }, [contentMounted, isReady, error, hasCompletedTutorial, startTour]);
 
   useEffect(() => {
     if (phase !== "cosmic") {
@@ -117,6 +137,12 @@ export default function App() {
       setPhase("auth");
       setContentMounted(false);
       setBackdropMode("walk");
+      // Reset so a DIFFERENT profile logging in next (same app launch, no restart) still gets
+      // correctly evaluated for its own first-time tour — this ref otherwise persists across
+      // logout/login cycles within one App instance, which would wrongly skip it for profile B just
+      // because profile A already finished the tour earlier in the same session.
+      tourAutoStarted.current = false;
+      useTourStore.getState().close();
     }
   }, [profileId, phase]);
 
@@ -174,6 +200,7 @@ export default function App() {
               </main>
               <AddTradeModal />
               <AiTaskAssistant />
+              <TourOverlay />
             </div>
           ))}
 

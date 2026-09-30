@@ -13,6 +13,7 @@ import { formatR } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Trade } from "@/db/types";
 import type { VariableWithValues } from "@/db/queries/variables";
+import { ignoreTourOutsideClicks } from "@/features/tour/ignoreTourOutsideClicks";
 
 type SortKey = "entry_time" | "market" | "outcome" | "result_r";
 
@@ -108,6 +109,8 @@ export function WeekDetailModal({
       <Dialog open onOpenChange={(v) => !v && onClose()}>
         <DialogContent
           hideClose
+          data-tour="week-modal"
+          onInteractOutside={ignoreTourOutsideClicks}
           className={cn(
             "flex flex-col gap-0 overflow-hidden p-0 transition-[max-width,height] duration-200",
             expanded ? "h-[92vh] max-w-[95vw]" : "max-h-[88vh] max-w-3xl",
@@ -136,7 +139,7 @@ export function WeekDetailModal({
               <Button size="icon" variant="ghost" onClick={() => setExpanded((v) => !v)}>
                 {expanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
               </Button>
-              <Button size="icon" variant="ghost" onClick={onClose}>
+              <Button size="icon" variant="ghost" onClick={onClose} data-tour="week-modal-close">
                 <X className="h-4 w-4" />
               </Button>
             </div>

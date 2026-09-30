@@ -30,6 +30,7 @@ const COLUMN_MIGRATIONS: { table: string; column: string; ddl: string }[] = [
   { table: "settings", column: "groq_api_key", ddl: "ALTER TABLE settings ADD COLUMN groq_api_key TEXT" },
   { table: "settings", column: "groq_model", ddl: "ALTER TABLE settings ADD COLUMN groq_model TEXT NOT NULL DEFAULT 'llama-3.3-70b-versatile'" },
   { table: "workspaces", column: "profile_id", ddl: "ALTER TABLE workspaces ADD COLUMN profile_id TEXT REFERENCES profiles(id)" },
+  { table: "profiles", column: "has_completed_tutorial", ddl: "ALTER TABLE profiles ADD COLUMN has_completed_tutorial INTEGER NOT NULL DEFAULT 0" },
 ];
 
 async function migrateColumns(db: Database): Promise<void> {

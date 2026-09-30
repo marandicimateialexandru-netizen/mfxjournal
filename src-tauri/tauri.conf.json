@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "mfxjournal",
+  "productName": "MFX Journal",
   "version": "0.1.0",
   "identifier": "com.maran.mfxjournal",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "mfxjournal",
+        "title": "MFX Journal",
         "width": 1200,
         "height": 800,
         "minWidth": 900,
@@ -37,6 +37,12 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico"
+      }
+    }
   }
 }

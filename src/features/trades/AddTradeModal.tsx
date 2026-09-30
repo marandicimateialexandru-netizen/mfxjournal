@@ -51,6 +51,7 @@ import { useTradeMutations, useTrade } from "./useTrades";
 import { parseVoiceTrade } from "@/features/ai/voiceFill";
 import { useSettings } from "@/features/settings/useSettings";
 import { copyScreenshotsToAppData } from "@/lib/screenshots";
+import { ignoreTourOutsideClicks } from "@/features/tour/ignoreTourOutsideClicks";
 
 const schema = z.object({
   entry_time: z.string().min(1, "Required"),
@@ -114,9 +115,16 @@ const TONE_GRADIENT: Record<string, string> = {
 
 /** A consistent elevated panel for every form section — border, subtle surface lift, and a colored accent
  * bar along the top so each section reads as its own distinct "card" instead of blending into the page. */
-function SectionCard({ tone, children }: { tone: Parameters<typeof IconBadge>[0]["tone"]; children: React.ReactNode }) {
+function SectionCard({
+  tone,
+  children,
+  ...rest
+}: { tone: Parameters<typeof IconBadge>[0]["tone"]; children: React.ReactNode } & React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className="relative overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-lg shadow-black/25 transition-shadow duration-300 focus-within:shadow-xl">
+    <div
+      className="relative overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-lg shadow-black/25 transition-shadow duration-300 focus-within:shadow-xl"
+      {...rest}
+    >
       <div className="absolute inset-x-0 top-0 h-1" style={{ background: TONE_GRADIENT[tone as string] }} />
       <div className="space-y-3.5">{children}</div>
     </div>
@@ -339,7 +347,7 @@ export function AddTradeModal() {
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && close()}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-4xl" data-tour="trade-modal" onInteractOutside={ignoreTourOutsideClicks}>
         <DialogHeader>
           <div className="flex items-center gap-3">
             <div className="relative shrink-0">
@@ -390,7 +398,7 @@ export function AddTradeModal() {
             </div>
           )}
 
-          <SectionCard tone="blue">
+          <SectionCard tone="blue" data-tour="trade-details">
             <SectionHeader icon={Receipt} tone="blue" title="Trade Details" subtitle="Entry, outcome, risk & market" />
 
             <div className="space-y-1.5">
@@ -509,7 +517,7 @@ export function AddTradeModal() {
           </SectionCard>
 
           {variables.length > 0 && (
-            <SectionCard tone="teal">
+            <SectionCard tone="teal" data-tour="trade-variables">
               <SectionHeader icon={SlidersHorizontal} tone="teal" title="Variables" subtitle={`${variables.length} configured dimension${variables.length === 1 ? "" : "s"}`} />
               <div className="grid grid-cols-2 gap-3">
                 {variables.map((v) => {
@@ -565,12 +573,12 @@ export function AddTradeModal() {
             </SectionCard>
           )}
 
-          <SectionCard tone="amber">
+          <SectionCard tone="amber" data-tour="trade-notes">
             <SectionHeader icon={NotebookPen} tone="amber" title="Notes" subtitle="What happened, what you learned" />
             <Textarea rows={3} placeholder="What happened? What did you learn?" {...register("notes")} />
           </SectionCard>
 
-          <SectionCard tone="rose">
+          <SectionCard tone="rose" data-tour="trade-screenshots">
             <SectionHeader icon={Images} tone="rose" title="Screenshots" subtitle="Entry & liquidity context" />
             <div className="space-y-3">
               <ScreenshotSlot

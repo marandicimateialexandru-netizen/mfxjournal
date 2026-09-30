@@ -18,6 +18,7 @@ export interface Profile {
   password_hash: string;
   password_salt: string;
   created_at: string;
+  has_completed_tutorial: number;
 }
 
 export interface Strategy {

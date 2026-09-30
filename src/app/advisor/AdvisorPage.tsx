@@ -121,7 +121,7 @@ export default function AdvisorPage() {
         <p className="text-sm text-[var(--color-text-muted)]">{stats.totalTrades} trades analyzed</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6" data-tour="advisor-metrics">
         <AdvisorMetricCard
           icon={Target}
           label="Expectancy"
@@ -136,7 +136,7 @@ export default function AdvisorPage() {
         <AdvisorMetricCard icon={ShieldAlert} label="Ruin Risk" value={`${ruinRisk.toFixed(1)}%`} tone={ruinRisk > 20 ? "negative" : "neutral"} caption="10R+ drawdown odds" />
       </div>
 
-      <Card>
+      <Card data-tour="advisor-equity">
         <CardHeader>
           <AdvisorSectionHeader
             icon={LineChartIcon}
@@ -181,7 +181,7 @@ export default function AdvisorPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card data-tour="advisor-montecarlo">
         <CardHeader>
           <AdvisorSectionHeader
             icon={Dices}
@@ -397,7 +397,7 @@ export default function AdvisorPage() {
 
       <RevenueSimulatorSection stats={stats} riskPerTradePct={settings?.risk_per_r_percent ?? 1} />
 
-      <Card>
+      <Card data-tour="advisor-patterns">
         <CardHeader>
           <AdvisorSectionHeader icon={Sparkles} title="Detected Patterns" description="Step through what the AI found — each one comes with a concrete next move" tone="violet" />
         </CardHeader>
@@ -406,7 +406,9 @@ export default function AdvisorPage() {
         </CardContent>
       </Card>
 
-      <MfxAiAssistant stats={stats} trades={trades} variables={variables} customResults={customResults} settings={settings} />
+      <div data-tour="advisor-assistant">
+        <MfxAiAssistant stats={stats} trades={trades} variables={variables} customResults={customResults} settings={settings} />
+      </div>
 
       <p className="text-center text-xs text-[var(--color-text-muted)]">
         All monetary and prop-firm projections are estimates only — not financial advice.

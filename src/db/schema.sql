@@ -8,7 +8,8 @@ CREATE TABLE IF NOT EXISTS profiles (
   name TEXT NOT NULL,
   password_hash TEXT NOT NULL,
   password_salt TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  has_completed_tutorial INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS workspaces (

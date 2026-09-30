@@ -11,6 +11,12 @@
       rel="stylesheet"
     />
     <title>MFXJournal</title>
+    <style>
+      /* Matches --color-background in src/index.css. Set here, inline, so the very first paint —
+         before the stylesheet or JS bundle has loaded — is already dark instead of the browser's
+         default white, which is what a "white screen for a couple seconds on launch" actually is. */
+      html, body { background: #0d0a16; }
+    </style>
   </head>
 
   <body>

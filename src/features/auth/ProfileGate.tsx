@@ -17,7 +17,7 @@ type Mode = "loading" | "create" | "picker" | "unlock" | "reset";
  *  upgrading never orphans real trade data. Renders no background of its own — it sits on top of the
  *  persistent shared ambience (`bg` + gradient + `AuthBackdrop`) mounted once in `App.tsx`, which is
  *  what's actually showing the drifting icons behind the card. */
-export function ProfileGate({ onSuccess }: { onSuccess: (id: string, name: string) => void }) {
+export function ProfileGate({ onSuccess }: { onSuccess: (id: string, name: string, hasCompletedTutorial: boolean) => void }) {
   const [mode, setMode] = useState<Mode>("loading");
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [selected, setSelected] = useState<Profile | null>(null);
@@ -34,9 +34,9 @@ export function ProfileGate({ onSuccess }: { onSuccess: (id: string, name: strin
    *  `busy` spinner overlay (shown the instant a submit handler starts) is still mounted underneath
    *  this the whole time, so the sequence reads as one continuous beat: hit enter → spinner while it
    *  verifies → pop → vanish, not a spinner that abruptly disappears before the exit starts. */
-  function succeed(id: string, name: string) {
+  function succeed(id: string, name: string, hasCompletedTutorial: boolean) {
     setExiting(true);
-    setTimeout(() => onSuccess(id, name), 420);
+    setTimeout(() => onSuccess(id, name, hasCompletedTutorial), 420);
   }
 
   useEffect(() => {
@@ -77,7 +77,7 @@ export function ProfileGate({ onSuccess }: { onSuccess: (id: string, name: strin
       const isFirstEver = profiles.length === 0;
       const profile = await createProfile(name.trim(), password);
       if (isFirstEver) await claimOrphanWorkspaces(profile.id);
-      succeed(profile.id, profile.name);
+      succeed(profile.id, profile.name, false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
       setBusy(false);
@@ -91,7 +91,7 @@ export function ProfileGate({ onSuccess }: { onSuccess: (id: string, name: strin
     try {
       const ok = await verifyProfilePassword(selected, password);
       if (ok) {
-        succeed(selected.id, selected.name);
+        succeed(selected.id, selected.name, Boolean(selected.has_completed_tutorial));
       } else {
         setError("Incorrect password.");
         setPassword("");
@@ -118,7 +118,7 @@ export function ProfileGate({ onSuccess }: { onSuccess: (id: string, name: strin
     setBusy(true);
     try {
       await resetProfilePassword(selected.id, password);
-      succeed(selected.id, selected.name);
+      succeed(selected.id, selected.name, Boolean(selected.has_completed_tutorial));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
       setBusy(false);

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Check, Download, Upload, Trash2, KeyRound, Info } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Check, Download, Upload, Trash2, KeyRound, Info, PlayCircle } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ import { useSettings, useUpdateSettings } from "@/features/settings/useSettings"
 import { useTrades, useTradeMutations } from "@/features/trades/useTrades";
 import { useVariables } from "@/features/variables/useVariables";
 import { useWorkspaceStore } from "@/store/workspaceStore";
+import { useTourStore } from "@/store/tourStore";
 import { THEME_PRESETS } from "@/features/theming/presets";
 import { applyTheme } from "@/features/theming/applyTheme";
 import { testApiKey } from "@/features/ai/aiClient";
@@ -59,6 +61,13 @@ export default function SettingsPage() {
   const { data: variables } = useVariables();
   const { deleteAllTrades } = useTradeMutations();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const startTour = useTourStore((s) => s.start);
+
+  function handleReplayTutorial() {
+    navigate("/dashboard");
+    startTour();
+  }
 
   const [apiKeyDraft, setApiKeyDraft] = useState("");
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
@@ -456,6 +465,20 @@ export default function SettingsPage() {
               </span>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Tutorial</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="mb-3 text-sm text-[var(--color-text-muted)]">
+            A guided walkthrough of the dashboard, journal, variables, and AI advisor.
+          </p>
+          <Button variant="secondary" onClick={handleReplayTutorial}>
+            <PlayCircle className="h-4 w-4" /> Replay Tutorial
+          </Button>
         </CardContent>
       </Card>
 
