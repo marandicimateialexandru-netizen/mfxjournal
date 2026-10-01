@@ -15,6 +15,9 @@ const notes = process.argv[2] ?? `MFX Journal v${version}`;
 
 const nsisExe = `MFX Journal_${version}_x64-setup.exe`;
 const nsisSigPath = join(root, `src-tauri/target/release/bundle/nsis/${nsisExe}.sig`);
+// GitHub silently replaces every space in an uploaded release asset's filename with a period —
+// the URL below has to match what the asset is ACTUALLY named after upload, not the local filename.
+const uploadedAssetName = nsisExe.replace(/ /g, ".");
 
 if (!existsSync(nsisSigPath)) {
   console.error(`Missing ${nsisSigPath}`);
@@ -31,7 +34,7 @@ const manifest = {
   platforms: {
     "windows-x86_64": {
       signature,
-      url: `https://github.com/${repo}/releases/download/v${version}/${encodeURIComponent(nsisExe)}`,
+      url: `https://github.com/${repo}/releases/download/v${version}/${encodeURIComponent(uploadedAssetName)}`,
     },
   },
 };
@@ -40,5 +43,5 @@ const outPath = join(root, "src-tauri/target/release/bundle/nsis/latest.json");
 writeFileSync(outPath, JSON.stringify(manifest, null, 2));
 console.log(`Wrote ${outPath}`);
 console.log(`\nUpload to the GitHub Release tagged v${version}:`);
-console.log(`  - ${nsisExe}`);
+console.log(`  - ${nsisExe}  (GitHub will rename it to ${uploadedAssetName} on upload — that's expected)`);
 console.log(`  - latest.json`);
