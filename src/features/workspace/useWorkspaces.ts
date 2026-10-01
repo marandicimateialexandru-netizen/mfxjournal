@@ -32,10 +32,28 @@ export function useWorkspaceMutations() {
     onSuccess: invalidate,
   });
 
+  const deleteWorkspace = useMutation({
+    mutationFn: async (id: string) => {
+      const remaining = await api.listWorkspaces(profileId!);
+      if (remaining.length <= 1) {
+        throw new Error("Can't delete your only stat sheet — create another one first if you want to replace it.");
+      }
+      await api.deleteWorkspace(id);
+      return remaining.find((w) => w.id !== id)!;
+    },
+    onSuccess: (fallback, deletedId) => {
+      invalidate();
+      // Deleting the one you're currently looking at needs to land somewhere real, not a workspace
+      // that no longer exists — hand off to whatever else the profile still has.
+      const currentId = useWorkspaceStore.getState().workspaceId;
+      if (currentId === deletedId) switchTo(fallback.id, fallback.name);
+    },
+  });
+
   function switchTo(id: string, name: string) {
     setWorkspace(id, name);
     if (profileId) setPersistedWorkspaceId(profileId, id);
   }
 
-  return { createWorkspace, renameWorkspace, switchTo };
+  return { createWorkspace, renameWorkspace, deleteWorkspace, switchTo };
 }
