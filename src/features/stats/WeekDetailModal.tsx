@@ -148,7 +148,7 @@ export function WeekDetailModal({
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
             <div className="grid grid-cols-3 gap-3">
               <StatTile value={String(stats.totalTrades)} label="Trades" />
-              <StatTile value={`${stats.winRatePct.toFixed(1)}%`} label="Win Rate" tone="text-[var(--color-warning)]" />
+              <StatTile value={`${stats.winRatePct.toFixed(1)}%`} label="Win Rate" tone={`text-[var(${tone.cssVar})]`} />
               <StatTile value={`${stats.beRatePct.toFixed(1)}%`} label="BE Rate" tone="text-[var(--color-warning)]" />
             </div>
 

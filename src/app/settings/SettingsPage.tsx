@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, Download, Upload, Trash2, KeyRound, Info, PlayCircle } from "lucide-react";
+import { Check, Download, Upload, Trash2, KeyRound, Info, PlayCircle, Eye, EyeOff } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,9 +70,11 @@ export default function SettingsPage() {
   }
 
   const [apiKeyDraft, setApiKeyDraft] = useState("");
+  const [showApiKey, setShowApiKey] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [testing, setTesting] = useState(false);
   const [groqKeyDraft, setGroqKeyDraft] = useState("");
+  const [showGroqKey, setShowGroqKey] = useState(false);
   const [groqTestResult, setGroqTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [groqTesting, setGroqTesting] = useState(false);
   const [seedCount, setSeedCount] = useState<number | null>(null);
@@ -273,12 +275,24 @@ export default function SettingsPage() {
               <KeyRound className="h-3.5 w-3.5" /> Anthropic API Key
             </Label>
             <div className="flex gap-2">
-              <Input
-                type="password"
-                placeholder={settings.ai_api_key ? "••••••••••••••••" : "sk-ant-…"}
-                value={apiKeyDraft}
-                onChange={(e) => setApiKeyDraft(e.target.value)}
-              />
+              <div className="relative flex-1">
+                <Input
+                  type={showApiKey ? "text" : "password"}
+                  placeholder={settings.ai_api_key ? "••••••••••••••••" : "sk-ant-…"}
+                  value={apiKeyDraft || (showApiKey ? settings.ai_api_key ?? "" : "")}
+                  onChange={(e) => setApiKeyDraft(e.target.value)}
+                  className="pr-9"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey((v) => !v)}
+                  disabled={!settings.ai_api_key && !apiKeyDraft}
+                  aria-label={showApiKey ? "Hide API key" : "Show API key"}
+                  className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text)] disabled:pointer-events-none disabled:opacity-40"
+                >
+                  {showApiKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </button>
+              </div>
               <Button
                 variant="secondary"
                 onClick={async () => {
@@ -343,12 +357,24 @@ export default function SettingsPage() {
                   <li>Copy the key (starts with "gsk_") and paste it below.</li>
                 </ol>
                 <div className="flex gap-2 pt-1">
-                  <Input
-                    type="password"
-                    placeholder={settings.groq_api_key ? "••••••••••••••••" : "gsk_…"}
-                    value={groqKeyDraft}
-                    onChange={(e) => setGroqKeyDraft(e.target.value)}
-                  />
+                  <div className="relative flex-1">
+                    <Input
+                      type={showGroqKey ? "text" : "password"}
+                      placeholder={settings.groq_api_key ? "••••••••••••••••" : "gsk_…"}
+                      value={groqKeyDraft || (showGroqKey ? settings.groq_api_key ?? "" : "")}
+                      onChange={(e) => setGroqKeyDraft(e.target.value)}
+                      className="pr-9"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowGroqKey((v) => !v)}
+                      disabled={!settings.groq_api_key && !groqKeyDraft}
+                      aria-label={showGroqKey ? "Hide API key" : "Show API key"}
+                      className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text)] disabled:pointer-events-none disabled:opacity-40"
+                    >
+                      {showGroqKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
                   <Button
                     variant="secondary"
                     onClick={async () => {
