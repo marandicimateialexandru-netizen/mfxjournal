@@ -65,6 +65,7 @@ export interface CustomResult {
 export interface VariableTemplate {
   id: string;
   workspace_id: string;
+  profile_id: string | null;
   name: string;
   description: string | null;
   data: string; // JSON-serialized TemplateData

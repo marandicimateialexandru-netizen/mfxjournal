@@ -31,6 +31,7 @@ const COLUMN_MIGRATIONS: { table: string; column: string; ddl: string }[] = [
   { table: "settings", column: "groq_model", ddl: "ALTER TABLE settings ADD COLUMN groq_model TEXT NOT NULL DEFAULT 'llama-3.3-70b-versatile'" },
   { table: "workspaces", column: "profile_id", ddl: "ALTER TABLE workspaces ADD COLUMN profile_id TEXT REFERENCES profiles(id)" },
   { table: "profiles", column: "has_completed_tutorial", ddl: "ALTER TABLE profiles ADD COLUMN has_completed_tutorial INTEGER NOT NULL DEFAULT 0" },
+  { table: "variable_templates", column: "profile_id", ddl: "ALTER TABLE variable_templates ADD COLUMN profile_id TEXT REFERENCES profiles(id)" },
 ];
 
 async function migrateColumns(db: Database): Promise<void> {
@@ -42,11 +43,25 @@ async function migrateColumns(db: Database): Promise<void> {
   }
 }
 
+/** Templates used to be scoped to the workspace they were saved from, so a template saved on one
+ *  stat sheet silently didn't exist on any other — this backfills `profile_id` for any row saved
+ *  before that changed, so existing templates immediately become visible across every stat sheet
+ *  that profile owns, with nothing lost and nothing to recreate by hand. Safe to run every launch:
+ *  only touches rows that still have no profile_id. */
+async function backfillTemplateProfiles(db: Database): Promise<void> {
+  await db.execute(
+    `UPDATE variable_templates
+     SET profile_id = (SELECT profile_id FROM workspaces WHERE workspaces.id = variable_templates.workspace_id)
+     WHERE profile_id IS NULL`,
+  );
+}
+
 async function migrate(db: Database): Promise<void> {
   for (const statement of splitStatements(schemaSql)) {
     await db.execute(statement);
   }
   await migrateColumns(db);
+  await backfillTemplateProfiles(db);
 }
 
 export async function getDb(): Promise<Database> {

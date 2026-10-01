@@ -5,6 +5,7 @@ import * as accountsApi from "@/db/queries/accounts";
 import * as streakApi from "@/db/queries/streakThresholds";
 import * as templatesApi from "@/db/queries/templates";
 import { useWorkspaceStore } from "@/store/workspaceStore";
+import { useAuthStore } from "@/store/authStore";
 import { BUILT_IN_TEMPLATES } from "./builtInTemplates";
 import type { TemplateData } from "@/db/types";
 
@@ -105,16 +106,21 @@ export interface TemplateOption {
 
 export function useTemplates() {
   const workspaceId = useWorkspaceStore((s) => s.workspaceId);
+  const profileId = useAuthStore((s) => s.currentProfileId);
   const queryClient = useQueryClient();
   const query = useQuery({
-    queryKey: ["variableTemplates", workspaceId],
-    queryFn: () => templatesApi.listTemplates(workspaceId!),
-    enabled: !!workspaceId,
+    queryKey: ["variableTemplates", profileId],
+    queryFn: () => templatesApi.listTemplates(profileId!),
+    enabled: !!profileId,
   });
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["variableTemplates", workspaceId] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["variableTemplates", profileId] });
   const create = useMutation({
     mutationFn: ({ name, description, data }: { name: string; description: string | null; data: TemplateData }) =>
-      templatesApi.createTemplate(workspaceId!, name, description, data),
+      templatesApi.createTemplate(workspaceId!, profileId!, name, description, data),
+    onSuccess: invalidate,
+  });
+  const remove = useMutation({
+    mutationFn: (id: string) => templatesApi.deleteTemplate(id),
     onSuccess: invalidate,
   });
 
@@ -129,5 +135,5 @@ export function useTemplates() {
     })),
   ];
 
-  return { ...query, options, create };
+  return { ...query, options, create, remove };
 }

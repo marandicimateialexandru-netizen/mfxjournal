@@ -161,6 +161,7 @@ CREATE TABLE IF NOT EXISTS settings (
 CREATE TABLE IF NOT EXISTS variable_templates (
   id TEXT PRIMARY KEY,
   workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+  profile_id TEXT REFERENCES profiles(id),
   name TEXT NOT NULL,
   description TEXT,
   data TEXT NOT NULL,

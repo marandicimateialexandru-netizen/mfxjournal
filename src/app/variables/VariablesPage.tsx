@@ -142,6 +142,7 @@ export default function VariablesPage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [mapping, setMapping] = useState<TemplateMapping>({});
   const [applying, setApplying] = useState(false);
+  const [deleteTemplateId, setDeleteTemplateId] = useState<string | null>(null);
 
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [templateName, setTemplateName] = useState("");
@@ -292,6 +293,12 @@ export default function VariablesPage() {
     setSaveTemplateOpen(false);
     setTemplateName("");
     setTemplateDescription("");
+  }
+
+  async function handleDeleteTemplate(id: string) {
+    await templates.remove.mutateAsync(id);
+    setDeleteTemplateId(null);
+    setSelectedTemplateId(templates.options.find((t) => t.id !== id)?.id ?? "");
   }
 
   function renderCard(key: string) {
@@ -623,18 +630,31 @@ export default function VariablesPage() {
             <>
               <div className="space-y-1.5">
                 <Label>Select a template</Label>
-                <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a template" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {templates.options.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>
-                        {t.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-1.5">
+                  <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Choose a template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {templates.options.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedTemplate && !selectedTemplate.isBuiltIn && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0 text-[var(--color-text-muted)] hover:text-[var(--color-danger)]"
+                      onClick={() => setDeleteTemplateId(selectedTemplate.id)}
+                      aria-label={`Delete ${selectedTemplate.name}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setApplyOpen(false)}>
@@ -714,6 +734,27 @@ export default function VariablesPage() {
               Cancel
             </Button>
             <Button onClick={handleSaveTemplate}>Save Template</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete (custom) Template */}
+      <Dialog open={!!deleteTemplateId} onOpenChange={(o) => !o && setDeleteTemplateId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete this template?</DialogTitle>
+            <DialogDescription>
+              This removes the saved template itself. It won't touch any variables already applied to this or any
+              other stat sheet — this can't be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTemplateId(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => deleteTemplateId && handleDeleteTemplate(deleteTemplateId)}>
+              Delete
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

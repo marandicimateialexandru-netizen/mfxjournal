@@ -27,7 +27,12 @@ export async function renameWorkspace(id: string, name: string): Promise<void> {
  *  enforcement actually active for this connection (no `PRAGMA foreign_keys = ON` anywhere in this
  *  codebase), so a plain `DELETE FROM workspaces` would silently leave every one of these rows
  *  behind as permanent orphaned garbage — correctness here means deleting children before parents
- *  explicitly, not trusting the schema's `REFERENCES` to do it. */
+ *  explicitly, not trusting the schema's `REFERENCES` to do it.
+ *
+ *  Deliberately NOT included: `variable_templates`. Templates are scoped to the profile that saved
+ *  them (see `db/queries/templates.ts`), not the workspace they happened to be saved from — a
+ *  template needs to keep working on every other stat sheet that profile owns even after the
+ *  original workspace is deleted. */
 export async function deleteWorkspace(id: string): Promise<void> {
   await execute("DELETE FROM ai_chat_messages WHERE session_id IN (SELECT id FROM ai_chat_sessions WHERE workspace_id = ?)", [id]);
   await execute("DELETE FROM ai_chat_sessions WHERE workspace_id = ?", [id]);
@@ -41,7 +46,6 @@ export async function deleteWorkspace(id: string): Promise<void> {
   await execute("DELETE FROM strategy_tester_rules WHERE workspace_id = ?", [id]);
   await execute("DELETE FROM custom_combinations WHERE workspace_id = ?", [id]);
   await execute("DELETE FROM dashboard_layouts WHERE workspace_id = ?", [id]);
-  await execute("DELETE FROM variable_templates WHERE workspace_id = ?", [id]);
   await execute("DELETE FROM prop_firm_rows WHERE workspace_id = ?", [id]);
   await execute("DELETE FROM streak_thresholds WHERE workspace_id = ?", [id]);
   await execute("DELETE FROM tasks WHERE workspace_id = ?", [id]);
