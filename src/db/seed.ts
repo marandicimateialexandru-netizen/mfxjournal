@@ -21,15 +21,6 @@ export async function seedIfEmpty(workspaceId: string): Promise<void> {
     byKey.set(v.key, { ...created, values });
   }
 
-  const setup = byKey.get("setup")!;
-  const session = byKey.get("session")!;
-  const news = byKey.get("news")!;
-  const direction = byKey.get("direction")!;
-  const setupValues = setup.values;
-  const sessionValues = session.values;
-  const newsValues = news.values;
-  const directionValues = direction.values;
-
   const daysAgo = (n: number, hour: number) => {
     const d = new Date();
     d.setDate(d.getDate() - n);
@@ -45,12 +36,6 @@ export async function seedIfEmpty(workspaceId: string): Promise<void> {
       result_r: 2.4,
       market: "EURUSD",
       notes: "Clean OSG entry off the morning liquidity sweep, held for target.",
-      variableValues: {
-        [setup.id]: { valueId: setupValues[0].id },
-        [session.id]: { valueId: sessionValues[0].id },
-        [news.id]: { valueId: newsValues[0].id },
-        [direction.id]: { valueId: directionValues[0].id },
-      },
     },
     {
       entry_time: daysAgo(7, 10),
@@ -59,12 +44,6 @@ export async function seedIfEmpty(workspaceId: string): Promise<void> {
       result_r: -1,
       market: "GBPUSD",
       notes: "TG held then failed straight into a US CPI print. Should have skipped it.",
-      variableValues: {
-        [setup.id]: { valueId: setupValues[1].id },
-        [session.id]: { valueId: sessionValues[1].id },
-        [news.id]: { valueId: newsValues[5].id },
-        [direction.id]: { valueId: directionValues[1].id },
-      },
     },
     {
       entry_time: daysAgo(5, 4),
@@ -73,12 +52,6 @@ export async function seedIfEmpty(workspaceId: string): Promise<void> {
       result_r: 1.8,
       market: "USDJPY",
       notes: "SLG+3CG liquidity sweep in the evening session, quick reversal into the fill.",
-      variableValues: {
-        [setup.id]: { valueId: setupValues[9].id },
-        [session.id]: { valueId: sessionValues[2].id },
-        [news.id]: { valueId: newsValues[0].id },
-        [direction.id]: { valueId: directionValues[0].id },
-      },
     },
     {
       entry_time: daysAgo(3, 8),
@@ -87,12 +60,6 @@ export async function seedIfEmpty(workspaceId: string): Promise<void> {
       result_r: 0,
       market: "EURUSD",
       notes: "Scratched at breakeven when structure invalidated early.",
-      variableValues: {
-        [setup.id]: { valueId: setupValues[2].id },
-        [session.id]: { valueId: sessionValues[0].id },
-        [news.id]: { valueId: newsValues[8].id },
-        [direction.id]: { valueId: directionValues[1].id },
-      },
     },
     {
       entry_time: daysAgo(1, 9),
@@ -101,12 +68,6 @@ export async function seedIfEmpty(workspaceId: string): Promise<void> {
       result_r: 3.1,
       market: "XAUUSD",
       notes: "3G confirmation into the day session, best trade of the week.",
-      variableValues: {
-        [setup.id]: { valueId: setupValues[3].id },
-        [session.id]: { valueId: sessionValues[1].id },
-        [news.id]: { valueId: newsValues[0].id },
-        [direction.id]: { valueId: directionValues[0].id },
-      },
     },
     {
       entry_time: daysAgo(14, 8),
@@ -115,12 +76,6 @@ export async function seedIfEmpty(workspaceId: string): Promise<void> {
       result_r: -1,
       market: "GBPUSD",
       notes: "3CG into the No Session window, chopped around and stopped out clean.",
-      variableValues: {
-        [setup.id]: { valueId: setupValues[4].id },
-        [session.id]: { valueId: sessionValues[2].id },
-        [news.id]: { valueId: newsValues[3].id },
-        [direction.id]: { valueId: directionValues[1].id },
-      },
     },
     {
       entry_time: daysAgo(12, 11),
@@ -129,12 +84,6 @@ export async function seedIfEmpty(workspaceId: string): Promise<void> {
       result_r: 2.2,
       market: "XAUUSD",
       notes: "SLG+OG off the London open, sized up on a clean displacement leg.",
-      variableValues: {
-        [setup.id]: { valueId: setupValues[5].id },
-        [session.id]: { valueId: sessionValues[0].id },
-        [news.id]: { valueId: newsValues[7].id },
-        [direction.id]: { valueId: directionValues[0].id },
-      },
     },
     {
       entry_time: daysAgo(10, 9),
@@ -143,12 +92,6 @@ export async function seedIfEmpty(workspaceId: string): Promise<void> {
       result_r: 1.6,
       market: "EURUSD",
       notes: "SLG+TG on the New York open, took partial and trailed the rest.",
-      variableValues: {
-        [setup.id]: { valueId: setupValues[6].id },
-        [session.id]: { valueId: sessionValues[1].id },
-        [news.id]: { valueId: newsValues[0].id },
-        [direction.id]: { valueId: directionValues[1].id },
-      },
     },
     {
       entry_time: daysAgo(6, 10),
@@ -157,12 +100,6 @@ export async function seedIfEmpty(workspaceId: string): Promise<void> {
       result_r: 0,
       market: "USDJPY",
       notes: "SLG+TCG right before Fed Speech — flattened early rather than hold through it.",
-      variableValues: {
-        [setup.id]: { valueId: setupValues[7].id },
-        [session.id]: { valueId: sessionValues[2].id },
-        [news.id]: { valueId: newsValues[9].id },
-        [direction.id]: { valueId: directionValues[0].id },
-      },
     },
     {
       entry_time: daysAgo(2, 9),
@@ -171,17 +108,22 @@ export async function seedIfEmpty(workspaceId: string): Promise<void> {
       result_r: 1.9,
       market: "GBPUSD",
       notes: "SLG+3G off a local liquidity grab, textbook follow-through to target.",
-      variableValues: {
-        [setup.id]: { valueId: setupValues[8].id },
-        [session.id]: { valueId: sessionValues[0].id },
-        [news.id]: { valueId: newsValues[0].id },
-        [direction.id]: { valueId: directionValues[1].id },
-      },
     },
   ];
 
-  for (const t of sampleTrades) {
-    await createTrade(workspaceId, { ...t, is_seed: true });
+  // Every sample trade gets a value for EVERY seeded variable (not just the 4 the notes above
+  // narrate), round-robining through each variable's own value list by trade index — so a fresh
+  // install shows all ten variable categories with real win-rate data immediately, on the Dashboard
+  // and everywhere else, instead of only the ones a trade happens to mention. A variable with zero
+  // tagged trades renders no card at all (see `WinRateCard`), which is what "half my variables
+  // disappeared" turned out to be the first time this was narrower.
+  for (const [i, t] of sampleTrades.entries()) {
+    const variableValues: Record<string, { valueId: string }> = {};
+    for (const v of byKey.values()) {
+      if (v.values.length === 0) continue;
+      variableValues[v.id] = { valueId: v.values[i % v.values.length].id };
+    }
+    await createTrade(workspaceId, { ...t, variableValues, is_seed: true });
   }
 }
 
