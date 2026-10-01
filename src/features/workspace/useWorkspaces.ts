@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as api from "@/db/queries/workspaces";
+import { seedPersonalTaxonomy } from "@/db/seed";
 import { useWorkspaceStore } from "@/store/workspaceStore";
 import { useAuthStore } from "@/store/authStore";
 import { setPersistedWorkspaceId } from "@/lib/activeWorkspace";
@@ -20,7 +21,13 @@ export function useWorkspaceMutations() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["workspaces", profileId] });
 
   const createWorkspace = useMutation({
-    mutationFn: (name: string) => api.createWorkspace(name, profileId!),
+    mutationFn: async (name: string) => {
+      const ws = await api.createWorkspace(name, profileId!);
+      // New stat sheets get the full personal taxonomy immediately — no demo trades, just the
+      // variables/values/icons, so there's no empty-variables-page dead end to run into.
+      await seedPersonalTaxonomy(ws.id);
+      return ws;
+    },
     onSuccess: (ws) => {
       invalidate();
       switchTo(ws.id, ws.name);

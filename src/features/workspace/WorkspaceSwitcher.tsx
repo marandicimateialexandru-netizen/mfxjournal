@@ -139,7 +139,8 @@ export function WorkspaceSwitcher({ collapsed }: { collapsed: boolean }) {
               autoFocus
             />
             <p className="text-xs text-[var(--color-text-muted)]">
-              Starts empty — apply a template from the Variables page if you want the default tag schema.
+              Comes with the full variable taxonomy (Setup, Session, Direction, etc.) — remove any you don't
+              need from the Variables page, or clear them all and apply a different template.
             </p>
           </div>
           <DialogFooter>

@@ -4,22 +4,34 @@ import { createTrade } from "./queries/trades";
 import { ensureDefaultStreakThresholds } from "./queries/streakThresholds";
 import { PERSONAL_VARIABLE_SET } from "@/features/variables/personalVariableSet";
 
-/** Ships the user's real variable taxonomy plus a handful of sample trades so the app isn't empty on first launch. */
-export async function seedIfEmpty(workspaceId: string): Promise<void> {
+/** Creates every variable (and its values/icons) from the personal taxonomy on a workspace that has
+ *  none yet — the variable-only half of `seedIfEmpty` below, factored out so a freshly-created
+ *  workspace (via "+ New Stat Sheet") can get the same taxonomy immediately without also getting
+ *  seedIfEmpty's ten fake demo trades, which only make sense on a profile's very first workspace,
+ *  not on a new sheet meant to track real trades from day one. Returns the created variables keyed
+ *  by their `key`, for callers (like seedIfEmpty) that still need to reference specific ones. */
+export async function seedPersonalTaxonomy(workspaceId: string): Promise<Map<string, VariableWithValues>> {
+  const byKey = new Map<string, VariableWithValues>();
   const existingVars = await select<{ n: number }>(
     "SELECT COUNT(*) as n FROM variables WHERE workspace_id = ?",
     [workspaceId],
   );
-  if ((existingVars[0]?.n ?? 0) > 0) return;
+  if ((existingVars[0]?.n ?? 0) > 0) return byKey;
 
-  await ensureDefaultStreakThresholds(workspaceId);
-
-  const byKey = new Map<string, VariableWithValues>();
   for (const v of PERSONAL_VARIABLE_SET.variables) {
     const created = await createVariable(workspaceId, { key: v.key, label: v.label, type: v.type, icon: v.icon });
     const values = await Promise.all(v.values.map((val) => addVariableValue(created.id, val.label, { icon: val.icon ?? undefined })));
     byKey.set(v.key, { ...created, values });
   }
+  return byKey;
+}
+
+/** Ships the user's real variable taxonomy plus a handful of sample trades so the app isn't empty on first launch. */
+export async function seedIfEmpty(workspaceId: string): Promise<void> {
+  const byKey = await seedPersonalTaxonomy(workspaceId);
+  if (byKey.size === 0) return;
+
+  await ensureDefaultStreakThresholds(workspaceId);
 
   const daysAgo = (n: number, hour: number) => {
     const d = new Date();
