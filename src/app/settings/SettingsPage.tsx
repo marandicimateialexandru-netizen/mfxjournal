@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getVersion } from "@tauri-apps/api/app";
 import { Check, Download, Upload, Trash2, KeyRound, Info, PlayCircle, Eye, EyeOff } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,13 @@ export default function SettingsPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const startTour = useTourStore((s) => s.start);
+  const [appVersion, setAppVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    getVersion()
+      .then(setAppVersion)
+      .catch((err) => console.error("Failed to read app version:", err));
+  }, []);
 
   function handleReplayTutorial() {
     navigate("/dashboard");
@@ -515,7 +523,7 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-[var(--color-text-muted)]">
           <div className="space-y-1">
-            <p>MFXJournal v0.1.0</p>
+            <p>MFXJournal{appVersion ? ` v${appVersion}` : ""}</p>
             <p>Know your stake, reduce the mistake, increase your winrate.</p>
           </div>
           <CheckForUpdatesButton />

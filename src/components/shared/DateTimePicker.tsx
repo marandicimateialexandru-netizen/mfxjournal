@@ -2,14 +2,19 @@ import { useEffect, useMemo, useState } from "react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, isSameDay, isSameMonth } from "date-fns";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 const WEEKDAY_LABELS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+const MONTH_LABELS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
+// A wide, scrollable range rather than a tight window around "now" — a trade journal routinely
+// needs to backfill old history, and the previous current-6-to-current+1 window made anything
+// before ~6 years ago unreachable from the picker entirely.
 function yearRange(): number[] {
   const current = new Date().getFullYear();
   const years: number[] = [];
-  for (let y = current - 6; y <= current + 1; y++) years.push(y);
+  for (let y = current - 20; y <= current + 2; y++) years.push(y);
   return years;
 }
 const YEAR_RANGE = yearRange();
@@ -159,40 +164,64 @@ export function DateTimePicker({
           <CalendarIcon className="h-4 w-4 text-[#8b5cf6]" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-[280px] space-y-3 p-3" align="start">
+      <PopoverContent className="w-[300px] space-y-3 p-3" align="start">
         <div className="flex items-center justify-between gap-1">
           <button
             type="button"
             onClick={() => setViewDate((d) => addMonths(d, -1))}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-text-muted)] transition-colors hover:bg-[#8b5cf6]/10 hover:text-[var(--color-text)]"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--color-text-muted)] transition-colors hover:bg-[#8b5cf6]/10 hover:text-[var(--color-text)]"
             aria-label="Previous month"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <div className="flex items-center gap-1 text-sm font-semibold text-[var(--color-text)]">
-            <span>{format(viewDate, "MMMM")}</span>
-            <select
-              value={viewDate.getFullYear()}
-              onChange={(e) =>
+          <div className="flex items-center gap-1">
+            <Select
+              value={String(viewDate.getMonth())}
+              onValueChange={(v) =>
                 setViewDate((d) => {
                   const nd = new Date(d);
-                  nd.setFullYear(Number(e.target.value));
+                  nd.setMonth(Number(v));
                   return nd;
                 })
               }
-              className="cursor-pointer rounded-md border border-transparent bg-transparent px-1 py-0.5 text-sm font-semibold text-[var(--color-text)] hover:border-[var(--color-border)] focus:outline-none"
             >
-              {YEAR_RANGE.map((y) => (
-                <option key={y} value={y} className="bg-[var(--color-surface)]">
-                  {y}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="h-7 w-[108px] border-transparent bg-transparent px-1.5 text-sm font-semibold hover:border-[var(--color-border)] [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:opacity-50">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="max-h-56">
+                {MONTH_LABELS.map((m, i) => (
+                  <SelectItem key={m} value={String(i)}>
+                    {m}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={String(viewDate.getFullYear())}
+              onValueChange={(v) =>
+                setViewDate((d) => {
+                  const nd = new Date(d);
+                  nd.setFullYear(Number(v));
+                  return nd;
+                })
+              }
+            >
+              <SelectTrigger className="h-7 w-[72px] border-transparent bg-transparent px-1.5 text-sm font-semibold hover:border-[var(--color-border)] [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:opacity-50">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="max-h-56">
+                {YEAR_RANGE.map((y) => (
+                  <SelectItem key={y} value={String(y)}>
+                    {y}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <button
             type="button"
             onClick={() => setViewDate((d) => addMonths(d, 1))}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-text-muted)] transition-colors hover:bg-[#8b5cf6]/10 hover:text-[var(--color-text)]"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--color-text-muted)] transition-colors hover:bg-[#8b5cf6]/10 hover:text-[var(--color-text)]"
             aria-label="Next month"
           >
             <ChevronRight className="h-4 w-4" />
@@ -205,7 +234,7 @@ export function DateTimePicker({
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-0.5">
+        <div key={format(viewDate, "yyyy-MM")} className="grid grid-cols-7 gap-0.5 animate-in fade-in-0 duration-150">
           {days.map((day) => {
             const inMonth = isSameMonth(day, viewDate);
             const isSelected = selected && isSameDay(day, selected);
