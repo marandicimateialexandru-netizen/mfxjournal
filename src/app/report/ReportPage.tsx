@@ -3,11 +3,13 @@ import { format } from "date-fns";
 import { Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { SymbolFilterCombobox } from "@/components/shared/SymbolFilterCombobox";
 import { formatR, formatPct } from "@/lib/format";
 import { useStats } from "@/features/stats/useStats";
 import { computeStats } from "@/features/stats/computeStats";
 import { dayOfWeekBuckets, timeOfDayBuckets, streakBuckets } from "@/features/stats/pseudoVariables";
 import { detectPatterns } from "@/features/patterns/detectedPatterns";
+import { TradeVariableCalculator } from "@/features/report/TradeVariableCalculator";
 import { useUiStore, type DateRangePreset } from "@/store/uiStore";
 import { useStreakThresholds } from "@/features/variables/useAuxLists";
 import { cn } from "@/lib/utils";
@@ -183,12 +185,19 @@ function HourStrip({ buckets, fmt }: { buckets: VariableBucketStats[]; fmt: (r: 
 /** A ranked leaderboard, not a stacked win/BE-rate card — sorted by actual R contributed, so the
  *  value that made or lost you the most money sits at the top, not whatever the configured display
  *  order happens to be. */
-function RankedTable({ label, buckets, fmt }: { label: string; buckets: VariableBucketStats[]; fmt: (r: number) => string }) {
-  const ranked = useMemo(() => [...buckets].filter((b) => b.tradeCount > 0).sort((a, b) => b.totalR - a.totalR), [buckets]);
+function RankedTable({ label, icon, buckets, fmt }: { label: string; icon: string | null; buckets: VariableBucketStats[]; fmt: (r: number) => string }) {
+  // Every configured value gets a row — even "0 trades" — the same rule WinRateCard uses. The old
+  // version filtered to tradeCount > 0 BEFORE the length check, so a variable nobody had tagged any
+  // trades with yet (every value here, not just one) silently vanished instead of showing "0×" rows;
+  // that's what made every variable but the one with tagged data disappear from this section. The
+  // card itself only hides when the variable has no configured values at all.
+  const ranked = useMemo(() => [...buckets].sort((a, b) => b.totalR - a.totalR), [buckets]);
   if (ranked.length === 0) return null;
+  const maxAbsR = Math.max(1, ...ranked.map((b) => Math.abs(b.totalR)));
   return (
-    <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
-      <div className="border-b border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5">
+    <div className="overflow-hidden rounded-lg border border-[var(--color-border)] transition-shadow hover:shadow-lg hover:shadow-black/5">
+      <div className="flex items-center gap-1.5 border-b border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5">
+        {icon && <span className="text-sm">{icon}</span>}
         <span className="text-xs font-bold uppercase tracking-wide text-[var(--color-text)]">{label}</span>
       </div>
       <div className="flex items-center gap-2.5 border-b border-[var(--color-border)] px-3 py-1">
@@ -199,17 +208,29 @@ function RankedTable({ label, buckets, fmt }: { label: string; buckets: Variable
         <span className="w-[72px] shrink-0 text-right text-[9px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Total R</span>
       </div>
       <div className="divide-y divide-[var(--color-border)]">
-        {ranked.map((b, i) => (
-          <div key={b.valueId} className="flex items-center gap-2.5 px-3 py-2 text-sm">
-            <span className="w-4 shrink-0 text-right text-[11px] tabular-nums text-[var(--color-text-muted)]">{i + 1}</span>
-            <span className="min-w-0 flex-1 truncate text-[var(--color-text)]">{b.label}</span>
-            <span className="w-12 shrink-0 text-right text-[11px] tabular-nums text-[var(--color-text-muted)]">{b.tradeCount}×</span>
-            <span className="w-12 shrink-0 text-right text-[11px] tabular-nums text-[var(--color-text-muted)]">{formatPct(b.winRatePct)}</span>
-            <span className={cn("w-[72px] shrink-0 text-right text-sm font-bold tabular-nums", b.totalR >= 0 ? "text-[var(--color-success)]" : "text-[var(--color-danger)]")}>
-              {fmt(b.totalR)}
-            </span>
-          </div>
-        ))}
+        {ranked.map((b, i) => {
+          const empty = b.tradeCount === 0;
+          return (
+            <div key={b.valueId} className="relative flex items-center gap-2.5 px-3 py-2 text-sm">
+              <div
+                className={cn("absolute inset-y-0 left-0 opacity-[0.08]", b.totalR >= 0 ? "bg-[var(--color-success)]" : "bg-[var(--color-danger)]")}
+                style={{ width: `${(Math.abs(b.totalR) / maxAbsR) * 100}%` }}
+              />
+              <span className="relative w-4 shrink-0 text-right text-[11px] tabular-nums text-[var(--color-text-muted)]">{i + 1}</span>
+              <span className={cn("relative min-w-0 flex-1 truncate", empty ? "text-[var(--color-text-muted)]" : "text-[var(--color-text)]")}>{b.icon ? `${b.icon} ` : ""}{b.label}</span>
+              <span className="relative w-12 shrink-0 text-right text-[11px] tabular-nums text-[var(--color-text-muted)]">{b.tradeCount}×</span>
+              <span className="relative w-12 shrink-0 text-right text-[11px] tabular-nums text-[var(--color-text-muted)]">{empty ? "—" : formatPct(b.winRatePct)}</span>
+              <span
+                className={cn(
+                  "relative w-[72px] shrink-0 text-right text-sm font-bold tabular-nums",
+                  empty ? "text-[var(--color-text-muted)]" : b.totalR >= 0 ? "text-[var(--color-success)]" : "text-[var(--color-danger)]",
+                )}
+              >
+                {empty ? "—" : fmt(b.totalR)}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -267,7 +288,7 @@ export default function ReportPage() {
   const bestMonth = monthly.length > 0 ? [...monthly].sort((a, b) => b.totalR - a.totalR)[0] : null;
   const worstMonth = monthly.length > 0 ? [...monthly].sort((a, b) => a.totalR - b.totalR)[0] : null;
 
-  const patterns = useMemo(() => detectPatterns(stats, trades, variables), [stats, trades, variables]);
+  const patterns = useMemo(() => detectPatterns(stats, trades, variables, customResults), [stats, trades, variables, customResults]);
 
   const recent7 = useMemo(() => {
     const cutoff = Date.now() - 7 * 86400000;
@@ -291,6 +312,7 @@ export default function ReportPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <SymbolFilterCombobox />
           <Select value={dateRange.preset} onValueChange={(v) => setDateRange({ preset: v as DateRangePreset, start: null, end: null })}>
             <SelectTrigger className="w-40">
               <SelectValue />
@@ -349,7 +371,7 @@ export default function ReportPage() {
       {streakEnabled && (
         <section>
           <SectionHeader index="03" title="Streak Context" subtitle="How you trade right after a win or loss streak" />
-          <RankedTable label="After a streak" buckets={streaks} fmt={fmt} />
+          <RankedTable label="After a streak" icon={null} buckets={streaks} fmt={fmt} />
           <p className="mt-2 text-xs text-[var(--color-text-muted)]">Configure thresholds on the Variables page.</p>
         </section>
       )}
@@ -396,7 +418,7 @@ export default function ReportPage() {
         <SectionHeader index="08" title="Variable Performance" subtitle={`${textVariables.length} variable type${textVariables.length === 1 ? "" : "s"}, ranked by total R`} />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {textVariables.map((v) => (
-            <RankedTable key={v.id} label={v.label} buckets={stats.byVariable[v.id] ?? []} fmt={fmt} />
+            <RankedTable key={v.id} label={v.label} icon={v.icon} buckets={stats.byVariable[v.id] ?? []} fmt={fmt} />
           ))}
         </div>
       </section>
@@ -412,6 +434,11 @@ export default function ReportPage() {
           ))}
           {patterns.length === 0 && <p className="p-6 text-center text-sm text-[var(--color-text-muted)]">Not enough data yet.</p>}
         </div>
+      </section>
+
+      <section>
+        <SectionHeader index="10" title="Trade Variable Calculator" subtitle="Build any combination of tagged values and see the real win rate for exactly that slice" />
+        <TradeVariableCalculator baseTrades={stats.filteredTrades} variables={variables} customResults={customResults} />
       </section>
     </div>
   );

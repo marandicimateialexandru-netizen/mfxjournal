@@ -1,6 +1,7 @@
-import type { Trade } from "@/db/types";
+import type { Trade, CustomResult } from "@/db/types";
 import type { StatsResult, VariableBucketStats } from "@/features/stats/types";
 import { dayOfWeekBuckets } from "@/features/stats/pseudoVariables";
+import { resolveOutcomeCategory } from "@/features/stats/computeStats";
 import type { VariableWithValues } from "@/db/queries/variables";
 
 export type PatternSentiment = "positive" | "negative" | "neutral";
@@ -33,6 +34,95 @@ function bestWorst(buckets: VariableBucketStats[]): { best?: VariableBucketStats
   return { best: sorted[0], worst: sorted[sorted.length - 1] };
 }
 
+interface TagRef {
+  variableId: string;
+  valueId: string;
+  label: string;
+}
+
+function hasTag(trade: Trade, tag: TagRef): boolean {
+  return !!trade.variableValues?.[tag.variableId]?.valueIds?.includes(tag.valueId);
+}
+
+function winRateOf(trades: Trade[], customResults: CustomResult[]): number | null {
+  const categories = trades.map((t) => resolveOutcomeCategory(t.outcome, customResults));
+  const wins = categories.filter((c) => c === "win").length;
+  const losses = categories.filter((c) => c === "loss").length;
+  return wins + losses > 0 ? (wins / (wins + losses)) * 100 : null;
+}
+
+const MAX_TAGS_FOR_COMBINATIONS = 60; // ~1,770 pairs — a safety cap, not a realistic ceiling for a personal journal's taxonomy
+const MAX_COMBINATION_CANDIDATES = 5; // per sentiment, pushed into the pool before the usual top-3 ranking
+const MIN_COMBINATION_EDGE = 8; // percentage points above/below baseline before a combination is worth surfacing at all
+
+/** The one genuinely new analysis this file didn't already do: not "which single tag performs best"
+ *  (the per-variable block above already covers that) but "does TAGGING TWO THINGS TOGETHER do
+ *  better or worse than either alone" — e.g. Local Liquidity + a Minor Sweep both present on the same
+ *  trade. Works for any two tags across any two variables, not just within one multi-tag variable;
+ *  a same-variable pair (two Liquidity values together) can only ever match on a trade for a variable
+ *  that actually allows multiple tags (Liquidity/News) — for a single-select variable the intersection
+ *  is always empty and the pair is silently skipped by the MIN_SAMPLE gate below, no special-casing
+ *  needed. Candidates feed into the same positive/negative pools as everything else in this file, so
+ *  they compete fairly with day-of-week/streak/single-variable findings for the final top-3 slots. */
+function combinationPairCandidates(
+  trades: Trade[],
+  variables: VariableWithValues[],
+  customResults: CustomResult[],
+  overallWinRate: number,
+): { positive: DetectedPattern[]; negative: DetectedPattern[] } {
+  const tags: TagRef[] = [];
+  for (const v of variables) {
+    if (v.type !== "text") continue;
+    for (const val of v.values) tags.push({ variableId: v.id, valueId: val.id, label: val.label });
+  }
+  if (tags.length > MAX_TAGS_FOR_COMBINATIONS) return { positive: [], negative: [] };
+
+  const pairs: { a: TagRef; b: TagRef; count: number; winRate: number; deviation: number }[] = [];
+  for (let i = 0; i < tags.length; i++) {
+    for (let j = i + 1; j < tags.length; j++) {
+      const a = tags[i];
+      const b = tags[j];
+      const matching = trades.filter((t) => hasTag(t, a) && hasTag(t, b));
+      if (matching.length < MIN_SAMPLE) continue;
+      const winRate = winRateOf(matching, customResults);
+      if (winRate == null) continue;
+      pairs.push({ a, b, count: matching.length, winRate, deviation: winRate - overallWinRate });
+    }
+  }
+
+  const positive: DetectedPattern[] = [];
+  const negative: DetectedPattern[] = [];
+
+  for (const p of [...pairs].sort((x, y) => y.deviation - x.deviation).slice(0, MAX_COMBINATION_CANDIDATES)) {
+    if (p.deviation < MIN_COMBINATION_EDGE) break;
+    const soloA = winRateOf(trades.filter((t) => hasTag(t, p.a)), customResults);
+    const soloB = winRateOf(trades.filter((t) => hasTag(t, p.b)), customResults);
+    if ((soloA != null && p.winRate <= soloA) || (soloB != null && p.winRate <= soloB)) continue;
+    const comparison =
+      soloA != null && soloB != null ? ` — beats either alone (${p.a.label} solo: ${soloA.toFixed(0)}%, ${p.b.label} solo: ${soloB.toFixed(0)}%)` : "";
+    positive.push({
+      category: "combination",
+      sentiment: "positive",
+      lowConfidence: p.count < LOW_CONFIDENCE_THRESHOLD,
+      text: `Trades tagged both ${p.a.label} and ${p.b.label} win at ${p.winRate.toFixed(0)}% (${p.count} trades), +${p.deviation.toFixed(0)}pts above your ${overallWinRate.toFixed(0)}% baseline${comparison}.${lowConfidenceSuffix(p.count)}`,
+      tip: `When ${p.a.label} and ${p.b.label} show up together, this is one of your strongest combinations — size and confidence can both lean up here.`,
+    });
+  }
+
+  for (const p of [...pairs].sort((x, y) => x.deviation - y.deviation).slice(0, MAX_COMBINATION_CANDIDATES)) {
+    if (p.deviation > -MIN_COMBINATION_EDGE) break;
+    negative.push({
+      category: "combination",
+      sentiment: "negative",
+      lowConfidence: p.count < LOW_CONFIDENCE_THRESHOLD,
+      text: `Trades tagged both ${p.a.label} and ${p.b.label} win at just ${p.winRate.toFixed(0)}% (${p.count} trades), ${p.deviation.toFixed(0)}pts below your ${overallWinRate.toFixed(0)}% baseline.${lowConfidenceSuffix(p.count)}`,
+      tip: `Watch for ${p.a.label} and ${p.b.label} appearing together — consider sitting that specific combination out until you understand what's dragging it down.`,
+    });
+  }
+
+  return { positive, negative };
+}
+
 /** Detects patterns and buckets them by sentiment, always returning exactly 3 opportunities, 3
  *  needs-attention leaks, and 3 neutral insights (9 total) when there's enough data — instead of
  *  whatever uneven mix happened to trigger. Each bucket is built as a POOL: the most specific,
@@ -42,12 +132,22 @@ function bestWorst(buckets: VariableBucketStats[]): { best?: VariableBucketStats
  *  trader's data genuinely doesn't produce three specific results in that sentiment. The three
  *  buckets are then interleaved (pos, neg, neutral, pos, neg, neutral...) so any prefix of the result
  *  — e.g. a smaller `cap` for a token-constrained AI context — still samples all three sentiments. */
-export function detectPatterns(stats: StatsResult, trades: Trade[], variables: VariableWithValues[], cap = 9): DetectedPattern[] {
+export function detectPatterns(
+  stats: StatsResult,
+  trades: Trade[],
+  variables: VariableWithValues[],
+  customResults: CustomResult[] = [],
+  cap = 9,
+): DetectedPattern[] {
   if (stats.totalTrades < MIN_SAMPLE) return [];
 
   const positive: DetectedPattern[] = [];
   const negative: DetectedPattern[] = [];
   const neutral: DetectedPattern[] = [];
+
+  const combos = combinationPairCandidates(stats.filteredTrades, variables, customResults, stats.winRatePct);
+  positive.push(...combos.positive);
+  negative.push(...combos.negative);
 
   const dowBuckets = dayOfWeekBuckets(trades).filter((b) => b.tradeCount >= MIN_SAMPLE);
   if (dowBuckets.length > 0) {

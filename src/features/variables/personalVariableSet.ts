@@ -51,6 +51,7 @@ export const PERSONAL_VARIABLE_SET: TemplateData = {
       label: "Liquidity",
       type: "text",
       icon: "💧",
+      allowMultiple: true,
       values: [
         { label: "Majora", icon: "♦️" },
         { label: "HOD", icon: "🔺" },
@@ -74,6 +75,7 @@ export const PERSONAL_VARIABLE_SET: TemplateData = {
       label: "News",
       type: "text",
       icon: "📰",
+      allowMultiple: true,
       values: [
         { label: "No News", icon: "○" },
         { label: "German GDP", icon: "•" },

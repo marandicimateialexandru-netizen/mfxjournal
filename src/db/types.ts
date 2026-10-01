@@ -43,6 +43,9 @@ export interface Variable {
   type: VariableType;
   icon: string | null;
   sort_order: number;
+  /** Only ever true for Liquidity/News — lets a trade carry more than one tagged value for this
+   *  variable. Not a generic per-variable toggle (no UI exposes it); see `personalVariableSet.ts`. */
+  allow_multiple: number;
 }
 
 export interface VariableValue {
@@ -83,6 +86,7 @@ export interface TemplateVariable {
   type: VariableType;
   icon: string | null;
   values: TemplateVariableValue[];
+  allowMultiple?: boolean;
 }
 
 export interface TemplateData {
@@ -111,7 +115,10 @@ export interface Trade {
   created_at: string;
   updated_at: string;
   // hydrated, not raw columns:
-  variableValues?: Record<string, { valueId?: string; numberValue?: number }>;
+  // `valueId` is always the first tagged value (so every existing single-select call site keeps
+  // working unchanged); `valueIds` is every tagged value, for the variables flagged
+  // `allow_multiple` where a trade can carry more than one.
+  variableValues?: Record<string, { valueId?: string; valueIds?: string[]; numberValue?: number }>;
   screenshots?: TradeScreenshot[];
 }
 

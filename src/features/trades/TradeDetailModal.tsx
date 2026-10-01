@@ -41,8 +41,9 @@ export function TradeDetailModal({
     if (!variable) return null;
     const tagged = trade!.variableValues?.[variableId];
     if (variable.type === "number") return tagged?.numberValue != null ? String(tagged.numberValue) : null;
-    const value = variable.values.find((v) => v.id === tagged?.valueId);
-    return value ? `${value.icon ?? ""} ${value.label}` : null;
+    const values = (tagged?.valueIds ?? []).map((id) => variable.values.find((v) => v.id === id)).filter((v): v is NonNullable<typeof v> => !!v);
+    if (values.length === 0) return null;
+    return values.map((v) => `${v.icon ?? ""} ${v.label}`).join(" + ");
   }
 
   return (

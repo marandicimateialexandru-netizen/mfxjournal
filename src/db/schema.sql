@@ -40,7 +40,8 @@ CREATE TABLE IF NOT EXISTS variables (
   label TEXT NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('text','number')),
   icon TEXT,
-  sort_order INTEGER NOT NULL DEFAULT 0
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  allow_multiple INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS variable_values (
@@ -83,12 +84,15 @@ CREATE TABLE IF NOT EXISTS trades (
   updated_at TEXT NOT NULL
 );
 
+-- value_id is part of the primary key (not just trade_id+variable_id) so a variable flagged
+-- allow_multiple can carry more than one tagged value per trade — see migrateTradeVariableValuesPk
+-- in client.ts for the one-time structural migration off the old two-column PK.
 CREATE TABLE IF NOT EXISTS trade_variable_values (
   trade_id TEXT NOT NULL REFERENCES trades(id) ON DELETE CASCADE,
   variable_id TEXT NOT NULL REFERENCES variables(id),
   value_id TEXT REFERENCES variable_values(id),
   number_value REAL,
-  PRIMARY KEY (trade_id, variable_id)
+  PRIMARY KEY (trade_id, variable_id, value_id)
 );
 
 CREATE TABLE IF NOT EXISTS trade_screenshots (

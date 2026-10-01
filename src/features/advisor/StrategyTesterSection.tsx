@@ -21,8 +21,8 @@ interface Rule {
 }
 
 function matches(trade: Trade, rule: Rule): boolean {
-  const tagged = trade.variableValues?.[rule.variableId]?.valueId;
-  return tagged != null && rule.valueIds.includes(tagged);
+  const tagged = trade.variableValues?.[rule.variableId]?.valueIds;
+  return tagged != null && tagged.some((id) => rule.valueIds.includes(id));
 }
 
 function applyRules(trades: Trade[], rules: Rule[]): Trade[] {

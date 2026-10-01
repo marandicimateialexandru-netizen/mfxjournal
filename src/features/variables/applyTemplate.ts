@@ -31,6 +31,7 @@ export async function applyTemplate(
       await variablesApi.updateVariable(currentVariable.id, {
         label: templateVar.label,
         icon: templateVar.icon,
+        allow_multiple: templateVar.allowMultiple ? 1 : 0,
       });
       if (templateVar.type === "text") {
         const existingByLabel = new Map(currentVariable.values.map((v) => [v.label.toLowerCase(), v]));
@@ -57,6 +58,7 @@ async function createFreshVariable(workspaceId: string, templateVar: TemplateVar
     label: templateVar.label,
     type: templateVar.type,
     icon: templateVar.icon,
+    allowMultiple: templateVar.allowMultiple,
   });
   if (templateVar.type === "text") {
     for (const value of templateVar.values) {
@@ -76,6 +78,7 @@ export function buildTemplateDataFromVariables(
       type: v.type,
       icon: v.icon,
       values: v.values.map((val) => ({ label: val.label, icon: val.icon })),
+      allowMultiple: v.allow_multiple === 1,
     })),
   };
 }

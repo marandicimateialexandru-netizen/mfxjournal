@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { SymbolFilterCombobox } from "@/components/shared/SymbolFilterCombobox";
 import { formatR } from "@/lib/format";
 import { useUiStore } from "@/store/uiStore";
 import { useTrades, useTradeMutations } from "@/features/trades/useTrades";
@@ -38,6 +39,7 @@ export default function JournalPage() {
   const { data: settings } = useSettings();
   const { deleteTrades } = useTradeMutations();
   const openAddTradeModal = useUiStore((s) => s.openAddTradeModal);
+  const symbolFilter = useUiStore((s) => s.symbolFilter);
 
   const [search, setSearch] = useState("");
   const [outcomeFilter, setOutcomeFilter] = useState<string>("all");
@@ -50,11 +52,12 @@ export default function JournalPage() {
 
   const filtered = useMemo(() => {
     let result = trades;
+    if (symbolFilter) {
+      result = result.filter((t) => t.market?.toLowerCase() === symbolFilter.toLowerCase());
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
-      result = result.filter(
-        (t) => t.market?.toLowerCase().includes(q) || t.notes?.toLowerCase().includes(q),
-      );
+      result = result.filter((t) => t.notes?.toLowerCase().includes(q));
     }
     if (outcomeFilter !== "all") {
       result = result.filter((t) => t.outcome === outcomeFilter);
@@ -67,7 +70,7 @@ export default function JournalPage() {
       else if (sortKey === "result_r") cmp = a.result_r - b.result_r;
       return cmp * sortDir;
     });
-  }, [trades, search, outcomeFilter, sortKey, sortDir]);
+  }, [trades, symbolFilter, search, outcomeFilter, sortKey, sortDir]);
 
   // Only the rows scrolled into view (plus a small overscan buffer) ever exist in the DOM — at 18
   // trades that's moot, but this page has no cap on trade count, and a few thousand real <tr>
@@ -125,8 +128,9 @@ export default function JournalPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        <SymbolFilterCombobox />
         <Input
-          placeholder="Search symbol or notes…"
+          placeholder="Search notes…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-64"
@@ -201,15 +205,14 @@ export default function JournalPage() {
                       {formatR(t.result_r, calcMode, settings?.risk_per_r_percent, settings?.risk_per_r_dollar, { showSign: true })}
                     </div>
                     <div className="flex flex-wrap gap-1 overflow-hidden p-2">
-                      {variables.slice(0, 2).map((v) => {
+                      {variables.slice(0, 2).flatMap((v) => {
                         const tagged = t.variableValues?.[v.id];
-                        const value = v.values.find((val) => val.id === tagged?.valueId);
-                        if (!value) return null;
-                        return (
-                          <Badge key={v.id} variant="outline">
+                        const values = (tagged?.valueIds ?? []).map((id) => v.values.find((val) => val.id === id)).filter((val): val is NonNullable<typeof val> => !!val);
+                        return values.map((value) => (
+                          <Badge key={`${v.id}-${value.id}`} variant="outline">
                             {value.label}
                           </Badge>
-                        );
+                        ));
                       })}
                     </div>
                   </div>

@@ -15,6 +15,7 @@ import {
 import { Sparkles, Target, TrendingDown, Scale, Flame, Snowflake, ShieldAlert, LineChart as LineChartIcon, Dices, BarChart3, Waves, Activity, CalendarDays } from "lucide-react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { SymbolFilterCombobox } from "@/components/shared/SymbolFilterCombobox";
 import { AdvisorMetricCard, AdvisorSectionHeader } from "@/features/advisor/AdvisorVisuals";
 import { PatternExplorer } from "@/features/advisor/PatternExplorer";
 import { formatR } from "@/lib/format";
@@ -110,15 +111,18 @@ export default function AdvisorPage() {
 
   const edgeMap = useMemo(() => dayOfWeekBuckets(stats.filteredTrades, customResults), [stats.filteredTrades, customResults]);
 
-  const patterns = useMemo(() => detectPatterns(stats, trades, variables), [stats, trades, variables]);
+  const patterns = useMemo(() => detectPatterns(stats, trades, variables, customResults), [stats, trades, variables, customResults]);
 
   return (
     <div className="space-y-6 p-6">
-      <div>
-        <h1 className="flex items-center gap-2 text-xl font-semibold">
-          <Sparkles className="h-5 w-5 text-[var(--color-primary)]" /> AI Trading Advisor
-        </h1>
-        <p className="text-sm text-[var(--color-text-muted)]">{stats.totalTrades} trades analyzed</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="flex items-center gap-2 text-xl font-semibold">
+            <Sparkles className="h-5 w-5 text-[var(--color-primary)]" /> AI Trading Advisor
+          </h1>
+          <p className="text-sm text-[var(--color-text-muted)]">{stats.totalTrades} trades analyzed</p>
+        </div>
+        <SymbolFilterCombobox />
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6" data-tour="advisor-metrics">
@@ -407,7 +411,10 @@ export default function AdvisorPage() {
       </Card>
 
       <div data-tour="advisor-assistant">
-        <MfxAiAssistant stats={stats} trades={trades} variables={variables} customResults={customResults} settings={settings} />
+        {/* stats.filteredTrades, not the raw `trades` destructured above — so the AI's static
+            system-prompt context and its query_trades tool both see the exact same (symbol +
+            date-range) filtered trade set, instead of the prompt dump silently ignoring both. */}
+        <MfxAiAssistant stats={stats} trades={stats.filteredTrades} variables={variables} customResults={customResults} settings={settings} />
       </div>
 
       <p className="text-center text-xs text-[var(--color-text-muted)]">

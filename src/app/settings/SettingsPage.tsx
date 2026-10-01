@@ -37,8 +37,10 @@ function tradesToCsv(trades: ReturnType<typeof useTrades>["data"], variables: Re
     const varVals = (variables ?? []).map((v) => {
       const tagged = t.variableValues?.[v.id];
       if (v.type === "number") return tagged?.numberValue ?? "";
-      const val = v.values.find((x) => x.id === tagged?.valueId);
-      return val?.label ?? "";
+      const labels = (tagged?.valueIds ?? [])
+        .map((id) => v.values.find((x) => x.id === id)?.label)
+        .filter((l): l is string => !!l);
+      return labels.join("; ");
     });
     return [
       t.entry_time,

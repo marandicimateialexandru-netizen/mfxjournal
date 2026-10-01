@@ -13,6 +13,8 @@ export interface StatsOptions {
   accountId?: string;
   variableFilters?: VariableFilter[];
   dateRange?: { start: Date; end: Date };
+  /** Exact, case-insensitive match against `trade.market`. */
+  symbol?: string;
   /** Configured Variables to break stats down by (drives `byVariable`). */
   variables?: VariableWithValues[];
   /** Needed to resolve non-default outcome strings to win/loss/be. */

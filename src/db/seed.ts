@@ -19,7 +19,7 @@ export async function seedPersonalTaxonomy(workspaceId: string): Promise<Map<str
   if ((existingVars[0]?.n ?? 0) > 0) return byKey;
 
   for (const v of PERSONAL_VARIABLE_SET.variables) {
-    const created = await createVariable(workspaceId, { key: v.key, label: v.label, type: v.type, icon: v.icon });
+    const created = await createVariable(workspaceId, { key: v.key, label: v.label, type: v.type, icon: v.icon, allowMultiple: v.allowMultiple });
     const values = await Promise.all(v.values.map((val) => addVariableValue(created.id, val.label, { icon: val.icon ?? undefined })));
     byKey.set(v.key, { ...created, values });
   }

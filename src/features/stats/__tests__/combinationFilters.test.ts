@@ -4,6 +4,16 @@ import type { Trade, Market } from "@/db/types";
 import type { VariableWithValues } from "@/db/queries/variables";
 
 function trade(id: string, entry: Date, market: string | null, variableValues?: Trade["variableValues"]): Trade {
+  // Mirrors what the real hydrate() in db/queries/trades.ts guarantees: valueIds always populated
+  // alongside valueId, so fixtures written against the old single-valueId shape still match.
+  const normalized = variableValues
+    ? Object.fromEntries(
+        Object.entries(variableValues).map(([k, v]) => [
+          k,
+          { ...v, valueIds: v.valueIds ?? (v.valueId ? [v.valueId] : undefined) },
+        ]),
+      )
+    : variableValues;
   return {
     id,
     workspace_id: "ws1",
@@ -19,7 +29,7 @@ function trade(id: string, entry: Date, market: string | null, variableValues?: 
     is_seed: 0,
     created_at: entry.toISOString(),
     updated_at: entry.toISOString(),
-    variableValues,
+    variableValues: normalized,
   };
 }
 
@@ -31,6 +41,7 @@ const DIRECTION: VariableWithValues = {
   type: "text",
   icon: null,
   sort_order: 0,
+  allow_multiple: 0,
   values: [
     { id: "val-buy", variable_id: "var-direction", label: "Buy", icon: null, color: null, sort_order: 0 },
     { id: "val-sell", variable_id: "var-direction", label: "Sell", icon: null, color: null, sort_order: 1 },

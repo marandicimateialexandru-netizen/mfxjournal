@@ -91,7 +91,7 @@ export function runQueryTradesTool(
     if (!variable) continue;
     const value = variable.values.find((v) => v.label.toLowerCase() === vf.valueLabel.toLowerCase());
     if (!value) continue;
-    filtered = filtered.filter((t) => t.variableValues?.[variable.id]?.valueId === value.id);
+    filtered = filtered.filter((t) => t.variableValues?.[variable.id]?.valueIds?.includes(value.id));
     filtersApplied.push(`${variable.label}=${value.label}`);
   }
 

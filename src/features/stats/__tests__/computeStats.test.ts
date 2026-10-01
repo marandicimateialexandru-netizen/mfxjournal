@@ -10,6 +10,16 @@ function trade(
   result_r: number,
   variableValues?: Trade["variableValues"],
 ): Trade {
+  // Mirrors what the real hydrate() in db/queries/trades.ts guarantees: valueIds always populated
+  // alongside valueId, so fixtures written against the old single-valueId shape still match.
+  const normalized = variableValues
+    ? Object.fromEntries(
+        Object.entries(variableValues).map(([k, v]) => [
+          k,
+          { ...v, valueIds: v.valueIds ?? (v.valueId ? [v.valueId] : undefined) },
+        ]),
+      )
+    : variableValues;
   return {
     id,
     workspace_id: "ws1",
@@ -25,7 +35,7 @@ function trade(
     is_seed: 0,
     created_at: new Date(2026, 0, day).toISOString(),
     updated_at: new Date(2026, 0, day).toISOString(),
-    variableValues,
+    variableValues: normalized,
   };
 }
 
@@ -51,6 +61,7 @@ const SETUP_VARIABLE: VariableWithValues = {
   type: "text",
   icon: null,
   sort_order: 0,
+  allow_multiple: 0,
   values: [
     { id: "val-A", variable_id: "var1", label: "Setup A", icon: null, color: null, sort_order: 0 },
     { id: "val-B", variable_id: "var1", label: "Setup B", icon: null, color: null, sort_order: 1 },

@@ -38,9 +38,16 @@ function findVariableDisplay(trade: Trade, variable: VariableWithValues) {
     if (tagged?.numberValue == null) return null;
     return { color: null as string | null, valueLabel: String(tagged.numberValue) };
   }
-  const value = variable.values.find((v) => v.id === tagged?.valueId);
-  if (!value) return null;
-  return { color: value.color, valueLabel: value.label };
+  const values = (tagged?.valueIds ?? [])
+    .map((id) => variable.values.find((v) => v.id === id))
+    .filter((v): v is NonNullable<typeof v> => !!v);
+  if (values.length === 0) return null;
+  // Multiple tags (Liquidity/News) join into one card rather than needing a second grid layout —
+  // the color swatch falls back to the neutral accent once more than one color could apply.
+  return {
+    color: values.length === 1 ? values[0].color : null,
+    valueLabel: values.map((v) => v.label).join(" + "),
+  };
 }
 
 /** A small "label above value" card used for both Entry/End time and each tagged variable — same

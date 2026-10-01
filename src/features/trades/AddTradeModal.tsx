@@ -23,6 +23,7 @@ import {
   Sparkles,
   RefreshCw,
   ZoomIn,
+  Plus,
 } from "lucide-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import {
@@ -39,12 +40,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { IconBadge } from "@/components/shared/IconBadge";
 import { getTradingIcon, LiquidityIcon, TrendIcon } from "@/components/shared/tradingIcons";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/store/uiStore";
-import { useVariables } from "@/features/variables/useVariables";
+import { useVariables, useVariableMutations } from "@/features/variables/useVariables";
+import type { VariableWithValues } from "@/db/queries/variables";
 import { useCustomResults } from "@/features/variables/useAuxLists";
 import { useStrategies } from "@/features/strategy/useStrategies";
 import { useTradeMutations, useTrade } from "./useTrades";
@@ -161,8 +164,9 @@ export function AddTradeModal() {
   const { data: settings } = useSettings();
   const { data: existingTrade } = useTrade(editingTradeId);
   const { createTrade, updateTrade, deleteTrade } = useTradeMutations();
+  const { addValue } = useVariableMutations();
 
-  const [variableValues, setVariableValues] = useState<Record<string, { valueId?: string; numberValue?: number }>>({});
+  const [variableValues, setVariableValues] = useState<Record<string, { valueId?: string; valueIds?: string[]; numberValue?: number }>>({});
   const [entryScreenshot, setEntryScreenshot] = useState<string | null>(null);
   const [liquidityScreenshot, setLiquidityScreenshot] = useState<string | null>(null);
   const [trendScreenshot, setTrendScreenshot] = useState<string | null>(null);
@@ -223,7 +227,7 @@ export function AddTradeModal() {
         strategy_id: undefined,
         notes: (draftTrade.notes as string) ?? "",
       });
-      setVariableValues((draftTrade.variableValues as Record<string, { valueId?: string; numberValue?: number }>) ?? {});
+      setVariableValues((draftTrade.variableValues as Record<string, { valueId?: string; valueIds?: string[]; numberValue?: number }>) ?? {});
       setEntryScreenshot(null);
       setLiquidityScreenshot(null);
       setTrendScreenshot(null);
@@ -541,17 +545,30 @@ export function AddTradeModal() {
                         ) : null}
                         {v.label}
                       </Label>
-                      {v.type === "text" ? (
+                      {v.type === "text" && v.allow_multiple === 1 ? (
+                        <MultiValueField
+                          variable={v}
+                          selectedIds={variableValues[v.id]?.valueIds ?? []}
+                          onChange={(ids) => setVariableValues((prev) => ({ ...prev, [v.id]: { valueIds: ids } }))}
+                          onAddValue={async (label) => {
+                            const created = await addValue.mutateAsync({ variableId: v.id, label });
+                            return created.id;
+                          }}
+                        />
+                      ) : v.type === "text" ? (
                         <Select
-                          value={variableValues[v.id]?.valueId ?? ""}
+                          value={variableValues[v.id]?.valueId ?? "__clear__"}
                           onValueChange={(val) =>
-                            setVariableValues((prev) => ({ ...prev, [v.id]: { valueId: val } }))
+                            setVariableValues((prev) => ({ ...prev, [v.id]: val === "__clear__" ? {} : { valueId: val } }))
                           }
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="—" />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="__clear__" className="text-[var(--color-text-muted)]">
+                              — Clear —
+                            </SelectItem>
                             {v.values.map((val) => (
                               <SelectItem key={val.id} value={val.id}>
                                 {val.icon} {val.label}
@@ -750,5 +767,120 @@ function ScreenshotSlot({
       <span className="text-base font-semibold">{label}</span>
       <span className="text-xs">Click to upload a screenshot</span>
     </button>
+  );
+}
+
+/** The Liquidity/News-only control: real trading days often stack more than one of either (HOD +
+ *  a local sweep; a data release + a speech), so instead of a single `<Select>` forcing one choice
+ *  this renders every currently-tagged value as a removable chip, plus a "+" that opens a small
+ *  popover to toggle existing values on/off or type a brand-new one in on the spot — no need to
+ *  pre-build every possible combination on the Variables page first. */
+function MultiValueField({
+  variable,
+  selectedIds,
+  onChange,
+  onAddValue,
+}: {
+  variable: VariableWithValues;
+  selectedIds: string[];
+  onChange: (ids: string[]) => void;
+  onAddValue: (label: string) => Promise<string>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [newLabel, setNewLabel] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  function toggle(id: string) {
+    onChange(selectedIds.includes(id) ? selectedIds.filter((x) => x !== id) : [...selectedIds, id]);
+  }
+
+  async function handleAddNew() {
+    const label = newLabel.trim();
+    if (!label || adding) return;
+    setAdding(true);
+    try {
+      const id = await onAddValue(label);
+      onChange([...selectedIds, id]);
+      setNewLabel("");
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  const selectedValues = selectedIds
+    .map((id) => variable.values.find((v) => v.id === id))
+    .filter((v): v is NonNullable<typeof v> => !!v);
+
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {selectedValues.map((val) => (
+        <span
+          key={val.id}
+          className="inline-flex items-center gap-1 rounded-full border border-[var(--color-primary)]/40 bg-[var(--color-primary)]/10 py-0.5 pl-2 pr-1 text-xs font-medium text-[var(--color-text)]"
+        >
+          {val.icon} {val.label}
+          <button
+            type="button"
+            onClick={() => toggle(val.id)}
+            className="rounded-full p-0.5 text-[var(--color-text-muted)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
+            aria-label={`Remove ${val.label}`}
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </span>
+      ))}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-dashed border-[var(--color-border)] text-[var(--color-text-muted)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+            aria-label={`Add ${variable.label}`}
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-56 space-y-2 p-2" align="start">
+          <div className="max-h-40 space-y-0.5 overflow-y-auto">
+            {variable.values.length === 0 && (
+              <p className="px-2 py-1.5 text-xs text-[var(--color-text-muted)]">No values yet — add one below.</p>
+            )}
+            {variable.values.map((val) => {
+              const selected = selectedIds.includes(val.id);
+              return (
+                <button
+                  key={val.id}
+                  type="button"
+                  onClick={() => toggle(val.id)}
+                  className={cn(
+                    "flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-sm transition-colors hover:bg-[var(--color-background)]",
+                    selected && "font-semibold text-[var(--color-primary)]",
+                  )}
+                >
+                  {selected && <Check className="h-3 w-3" />}
+                  {val.icon} {val.label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex gap-1 border-t border-[var(--color-border)] pt-2">
+            <Input
+              value={newLabel}
+              onChange={(e) => setNewLabel(e.target.value)}
+              placeholder="New value…"
+              className="h-7 text-xs"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void handleAddNew();
+                }
+              }}
+            />
+            <Button type="button" size="sm" className="h-7 px-2" disabled={!newLabel.trim() || adding} onClick={handleAddNew}>
+              Add
+            </Button>
+          </div>
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 }

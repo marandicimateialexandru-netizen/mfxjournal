@@ -13,7 +13,7 @@ export interface TradeInput {
   market?: string | null;
   notes?: string | null;
   is_seed?: boolean;
-  variableValues?: Record<string, { valueId?: string; numberValue?: number }>;
+  variableValues?: Record<string, { valueId?: string; valueIds?: string[]; numberValue?: number }>;
   screenshots?: { path: string; label: string | null }[];
 }
 
@@ -29,16 +29,32 @@ async function hydrate(workspaceId: string, trades: Trade[]): Promise<Trade[]> {
     `SELECT * FROM trade_screenshots WHERE trade_id IN (${placeholders}) ORDER BY sort_order ASC`,
     ids,
   );
-  return trades.map((t) => ({
-    ...t,
-    workspace_id: workspaceId,
-    variableValues: Object.fromEntries(
-      vvRows
-        .filter((v) => v.trade_id === t.id)
-        .map((v) => [v.variable_id, { valueId: v.value_id ?? undefined, numberValue: v.number_value ?? undefined }]),
-    ),
-    screenshots: shots.filter((s) => s.trade_id === t.id),
-  }));
+  return trades.map((t) => {
+    // Grouped, not Object.fromEntries-collapsed — a multi-tag variable can have more than one row
+    // here, and collapsing by variable_id would silently keep only the last one.
+    const byVariable = new Map<string, { valueIds: string[]; numberValue?: number }>();
+    for (const v of vvRows) {
+      if (v.trade_id !== t.id) continue;
+      const entry = byVariable.get(v.variable_id) ?? { valueIds: [] };
+      if (v.value_id != null) entry.valueIds.push(v.value_id);
+      if (v.number_value != null) entry.numberValue = v.number_value;
+      byVariable.set(v.variable_id, entry);
+    }
+    const variableValues: Trade["variableValues"] = {};
+    for (const [variableId, entry] of byVariable) {
+      variableValues[variableId] = {
+        valueId: entry.valueIds[0],
+        valueIds: entry.valueIds.length > 0 ? entry.valueIds : undefined,
+        numberValue: entry.numberValue,
+      };
+    }
+    return {
+      ...t,
+      workspace_id: workspaceId,
+      variableValues,
+      screenshots: shots.filter((s) => s.trade_id === t.id),
+    };
+  });
 }
 
 export async function listTrades(workspaceId: string): Promise<Trade[]> {
@@ -134,10 +150,19 @@ export async function deleteAllTrades(workspaceId: string): Promise<void> {
 
 async function writeVariableValues(
   tradeId: string,
-  variableValues?: Record<string, { valueId?: string; numberValue?: number }>,
+  variableValues?: Record<string, { valueId?: string; valueIds?: string[]; numberValue?: number }>,
 ): Promise<void> {
   if (!variableValues) return;
   for (const [variableId, v] of Object.entries(variableValues)) {
+    if (v.valueIds && v.valueIds.length > 0) {
+      for (const valueId of v.valueIds) {
+        await execute(
+          "INSERT INTO trade_variable_values (trade_id, variable_id, value_id, number_value) VALUES (?, ?, ?, ?)",
+          [tradeId, variableId, valueId, null],
+        );
+      }
+      continue;
+    }
     if (v.valueId == null && v.numberValue == null) continue;
     await execute(
       "INSERT INTO trade_variable_values (trade_id, variable_id, value_id, number_value) VALUES (?, ?, ?, ?)",

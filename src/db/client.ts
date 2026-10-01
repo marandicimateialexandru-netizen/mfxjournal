@@ -32,6 +32,7 @@ const COLUMN_MIGRATIONS: { table: string; column: string; ddl: string }[] = [
   { table: "workspaces", column: "profile_id", ddl: "ALTER TABLE workspaces ADD COLUMN profile_id TEXT REFERENCES profiles(id)" },
   { table: "profiles", column: "has_completed_tutorial", ddl: "ALTER TABLE profiles ADD COLUMN has_completed_tutorial INTEGER NOT NULL DEFAULT 0" },
   { table: "variable_templates", column: "profile_id", ddl: "ALTER TABLE variable_templates ADD COLUMN profile_id TEXT REFERENCES profiles(id)" },
+  { table: "variables", column: "allow_multiple", ddl: "ALTER TABLE variables ADD COLUMN allow_multiple INTEGER NOT NULL DEFAULT 0" },
 ];
 
 async function migrateColumns(db: Database): Promise<void> {
@@ -56,12 +57,52 @@ async function backfillTemplateProfiles(db: Database): Promise<void> {
   );
 }
 
+/** Liquidity and News are the only two variables that ever get `allow_multiple` set — this flips it
+ *  on for any install's pre-existing rows (matched by `key`, which is stable even if the user renamed
+ *  the display label), so upgrading the app is what grants multi-tagging, not recreating the variable.
+ *  Safe every launch: only ever turns the flag on, never off, so re-running is a no-op once applied. */
+async function backfillMultiTagVariables(db: Database): Promise<void> {
+  await db.execute("UPDATE variables SET allow_multiple = 1 WHERE key IN ('liquidity', 'news') AND allow_multiple = 0");
+}
+
+/** `trade_variable_values` used to be keyed `(trade_id, variable_id)`, which is exactly the
+ *  constraint that made multi-tagging impossible — a second tagged value for the same variable on
+ *  the same trade would just overwrite the first. `CREATE TABLE IF NOT EXISTS` in schema.sql only
+ *  affects brand-new installs (which get the 3-column PK directly); an existing table keeps its old
+ *  PK forever unless rebuilt, which is what this does, once, the first launch after upgrading.
+ *  Detected via `PRAGMA table_info`'s `pk` column (1-indexed position within the primary key, 0 if
+ *  not part of it) rather than string-matching the stored schema text, since that's what actually
+ *  changed. */
+async function migrateTradeVariableValuesPk(db: Database): Promise<void> {
+  const info = await db.select<{ name: string; pk: number }[]>("PRAGMA table_info(trade_variable_values)");
+  const pkColumnCount = info.filter((c) => c.pk > 0).length;
+  if (pkColumnCount !== 2) return; // already migrated (3), or table doesn't exist yet (0, handled by CREATE TABLE)
+
+  await db.execute(`
+    CREATE TABLE trade_variable_values_v2 (
+      trade_id TEXT NOT NULL REFERENCES trades(id) ON DELETE CASCADE,
+      variable_id TEXT NOT NULL REFERENCES variables(id),
+      value_id TEXT REFERENCES variable_values(id),
+      number_value REAL,
+      PRIMARY KEY (trade_id, variable_id, value_id)
+    )
+  `);
+  await db.execute(`
+    INSERT OR IGNORE INTO trade_variable_values_v2 (trade_id, variable_id, value_id, number_value)
+    SELECT trade_id, variable_id, value_id, number_value FROM trade_variable_values
+  `);
+  await db.execute("DROP TABLE trade_variable_values");
+  await db.execute("ALTER TABLE trade_variable_values_v2 RENAME TO trade_variable_values");
+}
+
 async function migrate(db: Database): Promise<void> {
   for (const statement of splitStatements(schemaSql)) {
     await db.execute(statement);
   }
   await migrateColumns(db);
+  await migrateTradeVariableValuesPk(db);
   await backfillTemplateProfiles(db);
+  await backfillMultiTagVariables(db);
 }
 
 export async function getDb(): Promise<Database> {

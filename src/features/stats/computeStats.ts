@@ -19,6 +19,10 @@ function filterTrades(trades: Trade[], options: StatsOptions): Trade[] {
   if (options.accountId) {
     result = result.filter((t) => t.account_id === options.accountId);
   }
+  if (options.symbol) {
+    const symbol = options.symbol.toLowerCase();
+    result = result.filter((t) => t.market?.toLowerCase() === symbol);
+  }
   if (options.dateRange) {
     const { start, end } = options.dateRange;
     result = result.filter((t) => {
@@ -29,8 +33,8 @@ function filterTrades(trades: Trade[], options: StatsOptions): Trade[] {
   if (options.variableFilters && options.variableFilters.length > 0) {
     result = result.filter((t) =>
       options.variableFilters!.every((filter) => {
-        const tagged = t.variableValues?.[filter.variableId]?.valueId;
-        return tagged != null && filter.valueIds.includes(tagged);
+        const tagged = t.variableValues?.[filter.variableId]?.valueIds;
+        return tagged != null && tagged.some((id) => filter.valueIds.includes(id));
       }),
     );
   }
@@ -116,7 +120,9 @@ function computeVariableBucket(
   color: string | null,
   customResults: StatsOptions["customResults"],
 ): VariableBucketStats {
-  const bucketTrades = trades.filter((t) => t.variableValues?.[variableId]?.valueId === valueId);
+  // `.includes`, not `===` — a trade tagged with multiple values for this variable (Liquidity/News)
+  // counts toward every one of its tagged value's own buckets, not just the first.
+  const bucketTrades = trades.filter((t) => t.variableValues?.[variableId]?.valueIds?.includes(valueId));
   const categories = bucketTrades.map((t) => resolveOutcomeCategory(t.outcome, customResults));
   const wins = categories.filter((c) => c === "win").length;
   const losses = categories.filter((c) => c === "loss").length;

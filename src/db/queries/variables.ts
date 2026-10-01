@@ -25,7 +25,7 @@ export async function listVariables(workspaceId: string): Promise<VariableWithVa
 
 export async function createVariable(
   workspaceId: string,
-  input: { key: string; label: string; type: VariableType; icon?: string | null; firstValue?: string },
+  input: { key: string; label: string; type: VariableType; icon?: string | null; firstValue?: string; allowMultiple?: boolean },
 ): Promise<VariableWithValues> {
   const existing = await select<{ n: number }>(
     "SELECT COUNT(*) as n FROM variables WHERE workspace_id = ?",
@@ -40,10 +40,11 @@ export async function createVariable(
     type: input.type,
     icon: input.icon ?? null,
     sort_order: sortOrder,
+    allow_multiple: input.allowMultiple ? 1 : 0,
   };
   await execute(
-    "INSERT INTO variables (id, workspace_id, key, label, type, icon, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    [variable.id, variable.workspace_id, variable.key, variable.label, variable.type, variable.icon, variable.sort_order],
+    "INSERT INTO variables (id, workspace_id, key, label, type, icon, sort_order, allow_multiple) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    [variable.id, variable.workspace_id, variable.key, variable.label, variable.type, variable.icon, variable.sort_order, variable.allow_multiple],
   );
   const values: VariableValue[] = [];
   if (input.type === "text" && input.firstValue) {
@@ -55,15 +56,16 @@ export async function createVariable(
 
 export async function updateVariable(
   id: string,
-  patch: Partial<Pick<Variable, "label" | "icon" | "sort_order">>,
+  patch: Partial<Pick<Variable, "label" | "icon" | "sort_order" | "allow_multiple">>,
 ): Promise<void> {
   const current = await select<Variable>("SELECT * FROM variables WHERE id = ?", [id]);
   if (current.length === 0) return;
   const merged = { ...current[0], ...patch };
-  await execute("UPDATE variables SET label = ?, icon = ?, sort_order = ? WHERE id = ?", [
+  await execute("UPDATE variables SET label = ?, icon = ?, sort_order = ?, allow_multiple = ? WHERE id = ?", [
     merged.label,
     merged.icon,
     merged.sort_order,
+    merged.allow_multiple,
     id,
   ]);
 }

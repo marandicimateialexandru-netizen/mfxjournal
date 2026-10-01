@@ -31,7 +31,10 @@ function parseDisplaySettings(raw: string | null): DisplaySettings {
 }
 
 export function CustomCombinationsSection() {
-  const { stats, customResults, variables } = useStats();
+  // Deliberately exempt from the global symbol filter — a saved combination should always mean
+  // what it says across your whole history, not silently narrow depending on whatever symbol
+  // happens to be selected on the rest of the Dashboard.
+  const { stats, customResults, variables } = useStats({ symbol: undefined });
   const { data: markets = [] } = useMarkets();
   const combinations = useCombinations();
 

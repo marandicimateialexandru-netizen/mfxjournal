@@ -26,6 +26,9 @@ interface UiState {
   strategyId: string | null;
   setStrategyId: (id: string | null) => void;
 
+  symbolFilter: string | null;
+  setSymbolFilter: (symbol: string | null) => void;
+
   beInWinRate: boolean;
   toggleBeInWinRate: () => void;
   hideEmpty: boolean;
@@ -58,6 +61,9 @@ export const useUiStore = create<UiState>((set) => ({
 
   strategyId: null,
   setStrategyId: (id) => set({ strategyId: id }),
+
+  symbolFilter: null,
+  setSymbolFilter: (symbol) => set({ symbolFilter: symbol }),
 
   beInWinRate: false,
   toggleBeInWinRate: () => set((s) => ({ beInWinRate: !s.beInWinRate })),

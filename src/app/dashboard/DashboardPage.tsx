@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SymbolFilterCombobox } from "@/components/shared/SymbolFilterCombobox";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -67,6 +67,9 @@ const DATE_PRESETS: { id: DateRangePreset; label: string }[] = [
 
 export default function DashboardPage() {
   const { stats, variables, settings } = useStats();
+  // Trade Calendar deliberately never narrows to the active symbol filter — it's meant to always
+  // show the full picture of when you traded, regardless of which symbol's stats you're inspecting.
+  const { stats: unfilteredStats } = useStats({ symbol: undefined });
   const calcMode = settings?.calc_mode ?? "r";
   const dateRange = useUiStore((s) => s.dateRange);
   const setDateRange = useUiStore((s) => s.setDateRange);
@@ -76,7 +79,6 @@ export default function DashboardPage() {
   const toggleHideBeRateColor = useUiStore((s) => s.toggleHideBeRateColor);
   const showLossRateColor = useUiStore((s) => s.showLossRateColor);
   const toggleShowLossRateColor = useUiStore((s) => s.toggleShowLossRateColor);
-  const [search, setSearch] = useState("");
 
   const fmt = (r: number) => formatR(r, calcMode, settings?.risk_per_r_percent, settings?.risk_per_r_dollar, { showSign: true });
 
@@ -131,12 +133,6 @@ export default function DashboardPage() {
 
   const numberVariables = variables.filter((v) => v.type === "number");
 
-  const filteredTradesForSearch = search.trim()
-    ? stats.filteredTrades.filter(
-        (t) => t.market?.toLowerCase().includes(search.toLowerCase()) || t.notes?.toLowerCase().includes(search.toLowerCase()),
-      )
-    : stats.filteredTrades;
-
   return (
     <div className="space-y-6 p-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -159,7 +155,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-2.5 shadow-sm">
-        <Input placeholder="Search symbol or notes…" value={search} onChange={(e) => setSearch(e.target.value)} className="w-56" />
+        <SymbolFilterCombobox />
         <Select value={dateRange.preset} onValueChange={(v) => setDateRange({ preset: v as DateRangePreset, start: null, end: null })}>
           <SelectTrigger className="w-40">
             <SelectValue />
@@ -406,7 +402,7 @@ export default function DashboardPage() {
       )}
 
       <div data-tour="dashboard-calendar">
-        <TradeCalendar trades={filteredTradesForSearch} variables={variables} />
+        <TradeCalendar trades={unfilteredStats.filteredTrades} variables={variables} />
       </div>
     </div>
   );

@@ -17,16 +17,17 @@ export interface DisplaySettings {
 
 export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = { showWinRate: true, showBeRate: true, showTotal: true };
 
-interface DraftFilter {
+export interface DraftFilter {
   key: string;
   variableId: string | null;
   include: boolean;
   valueIds: string[];
+  matchMode?: "any" | "all";
 }
 
-function toDraftFilters(filters: CombinationFilter[]): DraftFilter[] {
+export function toDraftFilters(filters: CombinationFilter[]): DraftFilter[] {
   if (filters.length === 0) return [{ key: newId(), variableId: null, include: true, valueIds: [] }];
-  return filters.map((f) => ({ key: newId(), variableId: f.variableId, include: f.include, valueIds: f.valueIds }));
+  return filters.map((f) => ({ key: newId(), variableId: f.variableId, include: f.include, valueIds: f.valueIds, matchMode: f.matchMode }));
 }
 
 export interface CombinationDraft {
@@ -67,7 +68,7 @@ export function CombinationBuilder({
 
   const validFilters: CombinationFilter[] = filters
     .filter((f) => f.variableId && f.valueIds.length > 0)
-    .map((f) => ({ variableId: f.variableId!, include: f.include, valueIds: f.valueIds }));
+    .map((f) => ({ variableId: f.variableId!, include: f.include, valueIds: f.valueIds, matchMode: f.matchMode }));
 
   const canSave = name.trim().length > 0 && validFilters.length > 0;
 
@@ -142,7 +143,7 @@ export function CombinationBuilder({
   );
 }
 
-function FilterRow({
+export function FilterRow({
   filter,
   variableOptions,
   onChange,
@@ -220,6 +221,29 @@ function FilterRow({
               );
             })
           )}
+        </div>
+      )}
+
+      {variable?.allowMultiple && filter.valueIds.length > 1 && (
+        <div className="flex items-center gap-1.5 pl-1">
+          <span className="text-xs text-[var(--color-text-muted)]">Match:</span>
+          <div className="flex overflow-hidden rounded-full border border-[var(--color-border)] text-xs font-medium">
+            {(["any", "all"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => onChange({ matchMode: mode })}
+                className={cn(
+                  "px-2.5 py-1 transition-colors",
+                  (filter.matchMode ?? "any") === mode
+                    ? "bg-[var(--color-primary)] text-white"
+                    : "text-[var(--color-text-muted)] hover:text-[var(--color-text)]",
+                )}
+              >
+                {mode === "any" ? "Any of these" : "All of these"}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>

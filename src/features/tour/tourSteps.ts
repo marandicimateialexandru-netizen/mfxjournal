@@ -181,7 +181,7 @@ export const TOUR_STEPS: TourStep[] = [
     cardSide: "right",
     icon: BookOpen,
     title: "Journal",
-    body: "Every trade you've ever logged, sortable by any column and searchable by symbol or notes. This is your full, unfiltered history — the dashboard summarizes it, this IS it.",
+    body: "Every trade you've ever logged, sortable by any column and searchable by notes. Filter by symbol to see just one instrument, or clear it to see everything combined — the dashboard summarizes it, this IS it.",
     example: "Sort by Result to instantly find your 10 worst trades and look for what they have in common.",
   },
   {

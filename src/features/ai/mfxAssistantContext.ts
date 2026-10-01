@@ -40,9 +40,9 @@ function resolveTags(trade: Trade, variables: VariableWithValues[]): string {
     if (!entry) continue;
     if (v.type === "number" && entry.numberValue != null) {
       parts.push(`${v.label}=${entry.numberValue}`);
-    } else if (entry.valueId) {
-      const val = v.values.find((x) => x.id === entry.valueId);
-      if (val) parts.push(`${v.label}=${val.label}`);
+    } else if (entry.valueIds && entry.valueIds.length > 0) {
+      const labels = entry.valueIds.map((id) => v.values.find((x) => x.id === id)?.label).filter((l): l is string => !!l);
+      if (labels.length > 0) parts.push(`${v.label}=${labels.join("+")}`);
     }
   }
   return parts.join(", ");
@@ -108,7 +108,7 @@ export function buildAssistantSystemPrompt(input: AssistantContextInput): string
     ? streakBuckets(all, { thresholds: streakThresholds, beBreaksStreak: !!(settings?.streak_be_breaks_streak ?? 1) }, customResults)
     : [];
 
-  const patterns = detectPatterns(stats, trades, variables, compact ? COMPACT_PATTERN_LIMIT : 12);
+  const patterns = detectPatterns(stats, trades, variables, customResults, compact ? COMPACT_PATTERN_LIMIT : 12);
   let textVariables = variables.filter((v) => v.type === "text");
   if (compact && textVariables.length > COMPACT_VARIABLE_LIMIT) {
     // Keep whichever variables actually have tagged trades, most-used first — an untagged or

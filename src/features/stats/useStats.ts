@@ -17,6 +17,7 @@ export function useStats(extra?: Partial<StatsOptions>) {
   const dateRange = useUiStore((s) => s.dateRange);
   const strategyId = useUiStore((s) => s.strategyId);
   const beInWinRate = useUiStore((s) => s.beInWinRate);
+  const symbolFilter = useUiStore((s) => s.symbolFilter);
 
   const resolvedRange = useMemo(() => resolveDateRange(dateRange), [dateRange]);
 
@@ -28,10 +29,11 @@ export function useStats(extra?: Partial<StatsOptions>) {
         dateRange: resolvedRange ?? undefined,
         strategyId: strategyId ?? undefined,
         beInWinRate,
+        symbol: symbolFilter ?? undefined,
         ...extra,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [trades, variables, customResults, resolvedRange, strategyId, beInWinRate, JSON.stringify(extra)],
+    [trades, variables, customResults, resolvedRange, strategyId, beInWinRate, symbolFilter, JSON.stringify(extra)],
   );
 
   return { stats, trades, variables, customResults, settings, isLoading: tradesLoading || variablesLoading };
