@@ -25,6 +25,7 @@ import { applyTheme } from "@/features/theming/applyTheme";
 import { testApiKey } from "@/features/ai/aiClient";
 import { testGroqKey } from "@/features/ai/groqClient";
 import { countTestTrades, deleteTestTrades } from "@/db/seed";
+import { CheckForUpdatesButton } from "@/features/updater/CheckForUpdatesButton";
 import type { CustomColors, CalcMode } from "@/db/types";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -512,9 +513,12 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>About & Updates</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-1 text-sm text-[var(--color-text-muted)]">
-          <p>MFXJournal v0.1.0</p>
-          <p>Know your stake, reduce the mistake, increase your winrate.</p>
+        <CardContent className="space-y-3 text-sm text-[var(--color-text-muted)]">
+          <div className="space-y-1">
+            <p>MFXJournal v0.1.0</p>
+            <p>Know your stake, reduce the mistake, increase your winrate.</p>
+          </div>
+          <CheckForUpdatesButton />
         </CardContent>
       </Card>
 

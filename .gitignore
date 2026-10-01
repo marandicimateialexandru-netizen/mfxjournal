@@ -28,6 +28,10 @@ dist-ssr
 .env.*
 !.env.example
 
+# Updater signing key — NEVER commit this, it's what proves an update really came from you
+*.key
+mfxjournal_updater.key*
+
 # Local trading data (DB + screenshots) — must never be committed
 *.db
 *.db-journal

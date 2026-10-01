@@ -41,10 +41,23 @@
     "resources": {
       "target/release/WebView2Loader.dll": "WebView2Loader.dll"
     },
+    "createUpdaterArtifacts": true,
     "windows": {
       "nsis": {
         "installerIcon": "icons/icon.ico",
-        "uninstallerIcon": "icons/icon.ico"
+        "uninstallerIcon": "icons/icon.ico",
+        "installMode": "currentUser"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "REPLACE_WITH_PUBLIC_KEY_FROM_SIGNER_GENERATE",
+      "endpoints": [
+        "https://github.com/marandicimateialexandru-netizen/mfxjournal/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
       }
     }
   }

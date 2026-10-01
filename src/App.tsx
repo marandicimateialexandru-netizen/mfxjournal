@@ -7,6 +7,7 @@ import { Logo } from "@/components/shared/Logo";
 import { AddTradeModal } from "@/features/trades/AddTradeModal";
 import { AiTaskAssistant } from "@/features/ai/AiTaskAssistant";
 import { TourOverlay } from "@/features/tour/TourOverlay";
+import { UpdateChecker } from "@/features/updater/UpdateChecker";
 import { IntroSplash } from "@/features/auth/IntroSplash";
 import { ProfileGate } from "@/features/auth/ProfileGate";
 import { CosmicTransition, CONVERGE_MS } from "@/features/auth/CosmicTransition";
@@ -201,6 +202,7 @@ export default function App() {
               <AddTradeModal />
               <AiTaskAssistant />
               <TourOverlay />
+              <UpdateChecker />
             </div>
           ))}
 
